@@ -1,0 +1,10 @@
+node_modules/
+__pycache__/
+*.session
+.env
+.gemini/
+.claude/
+.agents/
+dist/
+build/
+.DS_Store
