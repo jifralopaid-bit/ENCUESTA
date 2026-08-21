@@ -16,12 +16,20 @@ class TelegramValidator:
         self.bot_username = '@DOMINUSDOX_BOT'
         
         supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
-        supabase_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
-        self.supabase: Client = create_client(supabase_url, supabase_key)
+        supabase_key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
+        
+        if supabase_url and supabase_key:
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+        else:
+            self.supabase = None
         
         self.client = None
 
     async def start(self):
+        if self.supabase is None:
+            print("Advertencia: No hay conexión a Supabase. TelegramValidator no puede obtener la sesión.")
+            return
+
         # Read StringSession from Supabase
         response = self.supabase.table('candidatos').select('proposal').eq('name', '___telegram_session___').execute()
         if len(response.data) == 0:

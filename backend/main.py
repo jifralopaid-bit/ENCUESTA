@@ -20,12 +20,13 @@ app.add_middleware(
 
 # Supabase init
 supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
+supabase_key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
 
 if not supabase_url or not supabase_key:
-    raise RuntimeError("Faltan credenciales de Supabase en las variables de entorno.")
-
-supabase: Client = create_client(supabase_url, supabase_key)
+    print("ADVERTENCIA: Credenciales de Supabase no encontradas")
+    supabase = None
+else:
+    supabase: Client = create_client(supabase_url, supabase_key)
 
 validator = TelegramValidator()
 
@@ -48,6 +49,9 @@ async def shutdown_event():
 
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
+    if supabase is None:
+        raise HTTPException(status_code=500, detail="Base de datos no configurada.")
+
     # 1. Verificar si ya votó
     response = supabase.table('votos').select('id').eq('dni', request.ticket).execute()
     if len(response.data) > 0:
