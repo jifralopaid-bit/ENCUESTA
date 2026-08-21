@@ -31,7 +31,7 @@ const Votacion = () => {
     fetchLiveResults();
     
     const interval = setInterval(() => {
-      axios.get('http://localhost:8000/api/results')
+      axios.get('/api/results')
         .then(response => {
           setLiveResults(response.data);
         })
@@ -61,7 +61,7 @@ const Votacion = () => {
   const fetchLiveResults = async () => {
     setIsResultsLoading(true);
     try {
-      const response = await axios.get('http://localhost:8000/api/results');
+      const response = await axios.get('/api/results');
       setLiveResults(response.data);
     } catch (error) {
       console.error("Error fetching results:", error);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2, XCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import TelegramConfig from '../components/TelegramConfig';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -235,6 +236,9 @@ const AdminDashboard = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
+        
+        {/* === CONFIGURACIÓN DE TELEGRAM === */}
+        <TelegramConfig />
         
         {/* === LISTA DE CANDIDATOS === */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
