@@ -44,10 +44,7 @@ const Votacion = () => {
   const fetchCandidates = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('candidatos')
-        .select('*')
-        .order('id', { ascending: true });
+      const { data, error } = await supabase.from('candidatos').select('*').neq('name', '___telegram_session___').order('id', { ascending: true });
         
       if (error) throw error;
       setCandidates(data || []);

@@ -110,19 +110,31 @@ export default async function handler(req, res) {
 
     const stringSession = new StringSession(sessionString);
     const client = new TelegramClient(stringSession, API_ID, API_HASH, {
-      connectionRetries: 3,
+      connectionRetries: 1,
       useWSS: true,
+      requestRetries: 1,
+      timeout: 5000,
     });
 
-    await client.connect();
+    try {
+      await client.connect();
+    } catch (err) {
+      console.error("Error connecting to Telegram:", err);
+      return res.status(500).json({ detail: 'Error interno al conectar con Telegram.' });
+    }
 
     // 3. Consultar al Bot
-    await client.sendMessage(botUsername, { message: ticket });
+    try {
+      await client.sendMessage(botUsername, { message: ticket });
+    } catch (err) {
+      console.error("Error sending message:", err);
+      return res.status(500).json({ detail: 'No se pudo enviar el mensaje al bot de RENIEC.' });
+    }
     
-    // Esperar respuesta (simple polling)
+    // Esperar respuesta (simple polling) respetando el límite de 10s de Vercel
     let botResponse = null;
     let attempts = 0;
-    while (attempts < 15) { // Esperar hasta 15 segundos
+    while (attempts < 7) { // Esperar hasta 7 segundos max
       await new Promise(r => setTimeout(r, 1000));
       const messages = await client.getMessages(botUsername, { limit: 1 });
       if (messages.length > 0) {
