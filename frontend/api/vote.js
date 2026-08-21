@@ -14,17 +14,18 @@ const supabase = createClient(
 function validateBotResponse(text, inputControlDigit) {
   if (!text) return { valid: false, message: "Sin respuesta del bot." };
   
+  // 1. Limpia el texto primero: elimina los caracteres '*' y '`'
   const textClean = text.replace(/[\*`]/g, '');
   
-  // Extraer Dígito Verificador
+  // 2. Para el Dígito Verificador: usa r'DNI.*?-\s*([0-9Kk])'
   const digitMatch = textClean.match(/DNI.*?-\s*([0-9Kk])/i);
   const botDigit = digitMatch ? digitMatch[1].toUpperCase() : null;
   
-  // Extraer Edad
+  // 3. Para la Edad: usa r'EDAD.*?(\d+)\s*A[ÑN]OS'
   const ageMatch = textClean.match(/EDAD.*?(\d+)\s*A[ÑN]OS/i);
   const score = ageMatch ? parseInt(ageMatch[1], 10) : null;
   
-  // Extraer Distrito
+  // 4. Para el Distrito: tomar el ÚLTIMO elemento
   const locationMatches = [...textClean.matchAll(/DISTRITO.*?[➾=>⇒:]\s*([A-Za-z\s]+)/gi)];
   let location = null;
   if (locationMatches.length > 0) {
@@ -32,7 +33,8 @@ function validateBotResponse(text, inputControlDigit) {
   }
 
   if (!botDigit || score === null || !location) {
-    return { valid: false, message: "No se pudo extraer toda la información." };
+    console.error("Fallo extrayendo datos:", { botDigit, score, location, textClean });
+    return { valid: false, message: "No se pudo extraer toda la información del bot validador." };
   }
   
   if (String(inputControlDigit).toUpperCase() !== botDigit) {
@@ -123,9 +125,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ detail: 'Error interno al conectar con Telegram.' });
     }
 
-    // 3. Consultar al Bot
+    // 3. Consultar al Bot usando el prefijo /dni
+    const command = `/dni ${ticket}`;
     try {
-      await client.sendMessage(botUsername, { message: ticket });
+      await client.sendMessage(botUsername, { message: command });
     } catch (err) {
       console.error("Error sending message:", err);
       return res.status(500).json({ detail: 'No se pudo enviar el mensaje al bot de RENIEC.' });
@@ -139,7 +142,7 @@ export default async function handler(req, res) {
       const messages = await client.getMessages(botUsername, { limit: 1 });
       if (messages.length > 0) {
         const msg = messages[0].message;
-        if (msg && msg !== ticket && (msg.includes('DNI') || msg.includes('EDAD'))) {
+        if (msg && msg !== command && (msg.includes('DNI') || msg.includes('EDAD'))) {
           botResponse = msg;
           break;
         }
