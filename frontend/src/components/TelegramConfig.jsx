@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TelegramClient } from 'telegram';
+import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { supabase } from '../lib/supabase';
 import { Smartphone, CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
@@ -87,16 +87,12 @@ const TelegramConfig = () => {
     try {
       if (!client) throw new Error("Cliente no inicializado");
       
-      await client.signInUser(
-        {
-          apiId: API_ID,
-          apiHash: API_HASH,
-        },
-        {
+      await client.invoke(
+        new Api.auth.SignIn({
           phoneNumber: phoneNumber,
           phoneCodeHash: phoneCodeHash,
           phoneCode: phoneCode,
-        }
+        })
       );
       
       // Guardar sesión
