@@ -19,11 +19,11 @@ app.add_middleware(
 )
 
 # Supabase init
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
 
 if not supabase_url or not supabase_key:
-    raise RuntimeError("Faltan credenciales de Supabase en el archivo .env")
+    raise RuntimeError("Faltan credenciales de Supabase en las variables de entorno.")
 
 supabase: Client = create_client(supabase_url, supabase_key)
 

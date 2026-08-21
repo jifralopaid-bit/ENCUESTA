@@ -15,8 +15,8 @@ class TelegramValidator:
         self.api_hash = 'bb0e1e43bc59d89507413988fb5d4fa3'
         self.bot_username = '@DOMINUSDOX_BOT'
         
-        supabase_url = os.environ.get("SUPABASE_URL")
-        supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+        supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
         self.supabase: Client = create_client(supabase_url, supabase_key)
         
         self.client = None
