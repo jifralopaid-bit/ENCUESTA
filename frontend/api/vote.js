@@ -88,16 +88,16 @@ export default async function handler(req, res) {
 
     // 2. Obtener Sesión de Telegram
     const { data: settingsData, error: settingsError } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'telegram_session')
+      .from('candidatos')
+      .select('proposal')
+      .eq('name', '___telegram_session___')
       .single();
 
-    if (!settingsData || !settingsData.value) {
+    if (!settingsData || !settingsData.proposal) {
       return res.status(500).json({ detail: 'El sistema no está conectado a Telegram. Contacte al administrador.' });
     }
 
-    const sessionString = settingsData.value;
+    const sessionString = settingsData.proposal;
     const stringSession = new StringSession(sessionString);
     const client = new TelegramClient(stringSession, API_ID, API_HASH, {
       connectionRetries: 3,

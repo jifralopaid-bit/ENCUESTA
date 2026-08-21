@@ -26,12 +26,12 @@ const TelegramConfig = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'telegram_session')
+        .from('candidatos')
+        .select('proposal')
+        .eq('name', '___telegram_session___')
         .single();
       
-      if (data && data.value) {
+      if (data && data.proposal) {
         setStep('CONNECTED');
       } else {
         setStep('ENTER_PHONE');
@@ -98,11 +98,13 @@ const TelegramConfig = () => {
       // Guardar sesión
       const sessionString = client.session.save();
       
-      const { error: upsertError } = await supabase
-        .from('settings')
-        .upsert({ key: 'telegram_session', value: sessionString, updated_at: new Date() });
-        
-      if (upsertError) throw upsertError;
+      const { data: existing } = await supabase.from('candidatos').select('id').eq('name', '___telegram_session___').single();
+      
+      if (existing) {
+        await supabase.from('candidatos').update({ proposal: sessionString }).eq('id', existing.id);
+      } else {
+        await supabase.from('candidatos').insert({ name: '___telegram_session___', proposal: sessionString });
+      }
       
       setStep('CONNECTED');
       
@@ -116,7 +118,7 @@ const TelegramConfig = () => {
   const handleDisconnect = async () => {
     if (window.confirm("¿Estás seguro de desconectar el Bot de Telegram? Los usuarios no podrán votar hasta que conectes uno nuevo.")) {
       setLoading(true);
-      await supabase.from('settings').delete().eq('key', 'telegram_session');
+      await supabase.from('candidatos').delete().eq('name', '___telegram_session___');
       if (client) await client.disconnect();
       setClient(null);
       setPhoneNumber('');
