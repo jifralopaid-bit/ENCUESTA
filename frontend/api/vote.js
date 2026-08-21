@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 
-const API_ID = Number(process.env.VITE_TELEGRAM_API_ID);
-const API_HASH = process.env.VITE_TELEGRAM_API_HASH;
+const API_ID = 2040;
+const API_HASH = 'b18441a1ff607e10a989891a5462e627';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
