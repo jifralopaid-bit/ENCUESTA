@@ -40,13 +40,19 @@ class TelegramValidator:
         if not session_string:
             raise RuntimeError("Sesión inválida en la base de datos.")
 
-        self.client = TelegramClient(StringSession(session_string), self.api_id, self.api_hash)
-        await self.client.connect()
-        
-        if not await self.client.is_user_authorized():
-            raise RuntimeError("La sesión de Telegram ha expirado o es inválida.")
+        try:
+            self.client = TelegramClient(StringSession(session_string), self.api_id, self.api_hash)
+            await self.client.connect()
             
-        print("TelegramClient conectado exitosamente a través de StringSession.")
+            if not await self.client.is_user_authorized():
+                print("Advertencia: La sesión de Telegram ha expirado o es inválida. Falta el archivo .session o es incorrecto.")
+                self.client = None
+                return
+                
+            print("TelegramClient conectado exitosamente a través de StringSession.")
+        except Exception as e:
+            print(f"Advertencia: Error crítico al iniciar Telegram: {e}. Falta el archivo .session o la red falló.")
+            self.client = None
 
     async def stop(self):
         if self.client:

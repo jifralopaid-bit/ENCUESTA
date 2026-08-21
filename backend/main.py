@@ -12,7 +12,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://encuesta-wine.vercel.app", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,7 +36,11 @@ class VoteRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    await validator.start()
+    try:
+        await validator.start()
+    except Exception as e:
+        print(f"Advertencia: No se pudo iniciar Telegram en el arranque. Detalles: {e}")
+        # NO crashear la aplicación. La API debe seguir viva aunque Telegram falle.
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -70,3 +74,8 @@ async def vote(request: VoteRequest):
         raise HTTPException(status_code=500, detail="Error al registrar el voto en la base de datos.")
 
     return {"success": True, "message": "¡Tu voto ha sido registrado exitosamente!"}
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
