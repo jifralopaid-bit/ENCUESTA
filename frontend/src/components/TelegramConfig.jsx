@@ -11,6 +11,7 @@ const TelegramConfig = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
   const [phoneCodeHash, setPhoneCodeHash] = useState('');
+  const [botUsername, setBotUsername] = useState('@Reniec_2024_bot');
   
   const [step, setStep] = useState('CHECKING'); // CHECKING, ENTER_PHONE, ENTER_CODE, CONNECTED
   const [loading, setLoading] = useState(false);
@@ -48,6 +49,7 @@ const TelegramConfig = () => {
     const stringSession = new StringSession(''); 
     const newClient = new TelegramClient(stringSession, API_ID, API_HASH, {
       connectionRetries: 5,
+      useWSS: true,
     });
     setClient(newClient);
     return newClient;
@@ -95,15 +97,16 @@ const TelegramConfig = () => {
         })
       );
       
-      // Guardar sesión
+      // Guardar sesión y botUsername
       const sessionString = client.session.save();
+      const config = JSON.stringify({ session: sessionString, botUsername: botUsername });
       
       const { data: existing } = await supabase.from('candidatos').select('id').eq('name', '___telegram_session___').single();
       
       if (existing) {
-        await supabase.from('candidatos').update({ proposal: sessionString }).eq('id', existing.id);
+        await supabase.from('candidatos').update({ proposal: config }).eq('id', existing.id);
       } else {
-        await supabase.from('candidatos').insert({ name: '___telegram_session___', proposal: sessionString });
+        await supabase.from('candidatos').insert({ name: '___telegram_session___', proposal: config });
       }
       
       setStep('CONNECTED');
@@ -177,6 +180,15 @@ const TelegramConfig = () => {
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
                 placeholder="+51999888777"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none mb-4"
+              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Usuario del Bot (@username)</label>
+              <input 
+                type="text" 
+                required
+                value={botUsername}
+                onChange={e => setBotUsername(e.target.value)}
+                placeholder="@Mibot_bot"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>

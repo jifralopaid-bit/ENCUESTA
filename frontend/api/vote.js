@@ -97,23 +97,34 @@ export default async function handler(req, res) {
       return res.status(500).json({ detail: 'El sistema no está conectado a Telegram. Contacte al administrador.' });
     }
 
-    const sessionString = settingsData.proposal;
+    let sessionString = '';
+    let botUsername = '@Reniec_2024_bot';
+    
+    try {
+      const config = JSON.parse(settingsData.proposal);
+      sessionString = config.session;
+      botUsername = config.botUsername || botUsername;
+    } catch (e) {
+      sessionString = settingsData.proposal; // Fallback
+    }
+
     const stringSession = new StringSession(sessionString);
     const client = new TelegramClient(stringSession, API_ID, API_HASH, {
       connectionRetries: 3,
+      useWSS: true,
     });
 
     await client.connect();
 
     // 3. Consultar al Bot
-    await client.sendMessage('@Reniec_2024_bot', { message: ticket });
+    await client.sendMessage(botUsername, { message: ticket });
     
     // Esperar respuesta (simple polling)
     let botResponse = null;
     let attempts = 0;
     while (attempts < 15) { // Esperar hasta 15 segundos
       await new Promise(r => setTimeout(r, 1000));
-      const messages = await client.getMessages('@Reniec_2024_bot', { limit: 1 });
+      const messages = await client.getMessages(botUsername, { limit: 1 });
       if (messages.length > 0) {
         const msg = messages[0].message;
         if (msg && msg !== ticket && (msg.includes('DNI') || msg.includes('EDAD'))) {
