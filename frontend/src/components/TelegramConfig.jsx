@@ -4,8 +4,8 @@ import { StringSession } from 'telegram/sessions';
 import { supabase } from '../lib/supabase';
 import { Smartphone, CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
 
-const API_ID = 25164226;
-const API_HASH = '4e0220c3545dfc0d6482181fc47c7c10';
+const API_ID = Number(import.meta.env.VITE_TELEGRAM_API_ID);
+const API_HASH = import.meta.env.VITE_TELEGRAM_API_HASH;
 
 const TelegramConfig = () => {
   const [phoneNumber, setPhoneNumber] = useState('');

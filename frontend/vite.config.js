@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfills({
-      include: ['buffer', 'crypto', 'net', 'stream', 'util', 'events', 'path'],
+      include: ['buffer', 'crypto', 'net', 'stream', 'util', 'events', 'path', 'os'],
       globals: {
         Buffer: true,
         global: true,
