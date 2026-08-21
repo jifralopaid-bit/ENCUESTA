@@ -30,10 +30,13 @@ const Votacion = () => {
   useEffect(() => {
     fetchLiveResults();
     
+    const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
     const interval = setInterval(() => {
-      axios.get('/api/results')
+      axios.get(`${API_URL}/api/results`)
         .then(response => {
-          setLiveResults(response.data);
+          if (Array.isArray(response.data)) {
+            setLiveResults(response.data);
+          }
         })
         .catch(error => console.error("Error auto-fetching results:", error));
     }, 3000);
@@ -58,8 +61,11 @@ const Votacion = () => {
   const fetchLiveResults = async () => {
     setIsResultsLoading(true);
     try {
-      const response = await axios.get('/api/results');
-      setLiveResults(response.data);
+      const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await axios.get(`${API_URL}/api/results`);
+      if (Array.isArray(response.data)) {
+        setLiveResults(response.data);
+      }
     } catch (error) {
       console.error("Error fetching results:", error);
     } finally {

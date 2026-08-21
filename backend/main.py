@@ -79,6 +79,37 @@ async def vote(request: VoteRequest):
 
     return {"success": True, "message": "¡Tu voto ha sido registrado exitosamente!"}
 
+@app.get("/api/results")
+async def get_results():
+    if supabase is None:
+        return []
+        
+    try:
+        # Get all candidates
+        cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('id').execute()
+        candidates = cand_response.data or []
+        
+        # Get all votes
+        votes_response = supabase.table('votos').select('opcion_id').execute()
+        votes = votes_response.data or []
+        
+        # Count votes
+        vote_counts = {}
+        for v in votes:
+            vote_counts[v['opcion_id']] = vote_counts.get(v['opcion_id'], 0) + 1
+            
+        results = []
+        for i, c in enumerate(candidates):
+            results.append({
+                "name": f"Candidato {i+1}",
+                "votos": vote_counts.get(c['id'], 0)
+            })
+            
+        return results
+    except Exception as e:
+        print(f"Error fetching results: {e}")
+        return []
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
