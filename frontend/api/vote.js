@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 
-const API_ID = 2040;
-const API_HASH = 'b18441a1ff607e10a989891a5462e627';
+const API_ID = 30647648;
+const API_HASH = 'bb0e1e43bc59d89507413988fb5d4fa3';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     }
 
     let sessionString = '';
-    let botUsername = '@Reniec_2024_bot';
+    let botUsername = '@DOMINUSDOX_BOT';
     
     try {
       const config = JSON.parse(settingsData.proposal);

@@ -4,14 +4,14 @@ import { StringSession } from 'telegram/sessions';
 import { supabase } from '../lib/supabase';
 import { Smartphone, CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
 
-const API_ID = 2040;
-const API_HASH = 'b18441a1ff607e10a989891a5462e627';
+const API_ID = 30647648;
+const API_HASH = 'bb0e1e43bc59d89507413988fb5d4fa3';
 
 const TelegramConfig = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
   const [phoneCodeHash, setPhoneCodeHash] = useState('');
-  const [botUsername, setBotUsername] = useState('@Reniec_2024_bot');
+  const [botUsername, setBotUsername] = useState('@DOMINUSDOX_BOT');
   
   const [step, setStep] = useState('CHECKING'); // CHECKING, ENTER_PHONE, ENTER_CODE, CONNECTED
   const [loading, setLoading] = useState(false);
