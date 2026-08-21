@@ -64,7 +64,8 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
 
   const executeVote = async () => {
     try {
-      const response = await axios.post('/api/vote', {
+      const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await axios.post(`${API_URL}/api/vote`, {
         ticket: ticket,
         control_digit: controlDigit,
         option_id: candidate.id

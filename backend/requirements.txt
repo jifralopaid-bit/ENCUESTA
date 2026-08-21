@@ -1,0 +1,5 @@
+fastapi[all]==0.111.0
+Telethon==1.36.0
+supabase==2.5.1
+python-dotenv==1.0.1
+uvicorn==0.30.1
