@@ -61,6 +61,27 @@ class TelegramValidator:
                                 if match:
                                     digito_bot = match.group(1)
                                     if digito_bot == digito_esperado:
+                                        # Validación 2: Edad >= 18
+                                        match_edad = re.search(r"EDAD[^0-9]*(\d+)", message.text)
+                                        if match_edad:
+                                            edad = int(match_edad.group(1))
+                                            if edad < 18:
+                                                resultado_final = {"success": False, "error": f"El elector no cumple con la mayoría de edad requerida (Tiene {edad} años)."}
+                                                break
+                                                
+                                        # Validación 3: Distrito == LA PECA
+                                        # Buscamos la línea de DISTRITO y comprobamos que diga LA PECA
+                                        match_distrito = re.search(r"DISTRITO[^\n]+LA\s*PECA", message.text, re.IGNORECASE)
+                                        if not match_distrito:
+                                            # Extraer el distrito real para un mensaje más útil
+                                            distrito_real = "otro distrito"
+                                            distrito_raw = re.search(r"DISTRITO[^\w]+([A-Z\s]+)", message.text)
+                                            if distrito_raw:
+                                                distrito_real = distrito_raw.group(1).strip()
+                                            resultado_final = {"success": False, "error": f"El elector se encuentra registrado en '{distrito_real}' y no pertenece al distrito electoral de LA PECA."}
+                                            break
+                                        
+                                        # Si pasa todas las validaciones
                                         resultado_final = {"success": True, "data": message.text}
                                     else:
                                         resultado_final = {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
