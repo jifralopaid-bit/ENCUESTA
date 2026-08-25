@@ -38,15 +38,12 @@ temp_clients = {}
 
 @app.on_event("startup")
 async def startup_event():
-    try:
-        await validator.start()
-    except Exception as e:
-        print(f"Advertencia: No se pudo iniciar Telegram en el arranque. Detalles: {e}")
-        # NO crashear la aplicación. La API debe seguir viva aunque Telegram falle.
+    pass
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await validator.stop()
+    if validator.client and validator.client.is_connected():
+        await validator.client.disconnect()
 
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
@@ -66,13 +63,13 @@ async def vote(request: VoteRequest):
 
     # 2. Consultar a Telegram MTProto (Userbot)
     try:
-        validation = await validator.validate_dni(request.dni, request.digito_verificador)
+        validation = await validator.consultar_dni(request.dni)
     except Exception as e:
         print(f"Error consultando a Telegram: {e}")
         raise HTTPException(status_code=500, detail="El bot validador de RENIEC no respondió a tiempo.")
 
-    if not validation["valid"]:
-        raise HTTPException(status_code=400, detail=validation["message"])
+    if not validation.get("success"):
+        raise HTTPException(status_code=400, detail=validation.get("error", "Error desconocido en Telegram"))
 
     # 3. Registrar Voto
     try:
@@ -116,50 +113,6 @@ async def get_results():
     except Exception as e:
         print(f"Error fetching results: {e}")
         return []
-
-from telethon import TelegramClient
-from telethon.sessions import StringSession
-
-@app.post("/api/telegram/send-code")
-async def send_code(req: SendCodeRequest):
-    if supabase is None:
-        raise HTTPException(status_code=500, detail="Base de datos no conectada")
-    
-    client = TelegramClient(StringSession(''), validator.api_id, validator.api_hash)
-    await client.connect()
-    
-    try:
-        sent = await client.send_code_request(req.phone_number)
-        temp_clients[req.phone_number] = client
-        return {"phone_code_hash": sent.phone_code_hash}
-    except Exception as e:
-        await client.disconnect()
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/api/telegram/verify-code")
-async def verify_code(req: VerifyCodeRequest):
-    if req.phone_number not in temp_clients:
-        raise HTTPException(status_code=400, detail="Debe solicitar un código SMS primero.")
-        
-    client = temp_clients[req.phone_number]
-    
-    try:
-        await client.sign_in(req.phone_number, req.phone_code, phone_code_hash=req.phone_code_hash)
-        session_string = client.session.save()
-        
-        if supabase:
-            supabase.table('configuracion').update({'telegram_session': session_string}).eq('id', 1).execute()
-            
-        # Reiniciar validador principal
-        await validator.stop()
-        await validator.start()
-        
-        # Cleanup
-        del temp_clients[req.phone_number]
-        
-        return {"success": True, "message": "Bot conectado exitosamente a través del backend."}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
