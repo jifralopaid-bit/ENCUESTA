@@ -66,8 +66,13 @@ class TelegramValidator:
 
     async def send_code(self, phone_number: str):
         try:
-            if not self.client.is_connected():
-                await self.client.connect()
+            # Forzamos una nueva sesión en blanco para evitar el AuthKeyUnregisteredError del servidor
+            if self.client and self.client.is_connected():
+                await self.client.disconnect()
+            
+            self.client = TelegramClient(StringSession(""), API_ID, API_HASH)
+            await self.client.connect()
+            
             result = await self.client.send_code_request(phone_number)
             return {"success": True, "phone_code_hash": result.phone_code_hash}
         except Exception as e:
