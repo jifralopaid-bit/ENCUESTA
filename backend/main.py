@@ -101,7 +101,7 @@ async def process_vote_queue():
 
         # Cooldown anti-spam de Telegram
         # Evita que el bot de RENIEC nos ignore por mandar comandos demasiado rápido (SPAM protection)
-        await asyncio.sleep(4)
+        await asyncio.sleep(13)
 
 
 @app.on_event("startup")
