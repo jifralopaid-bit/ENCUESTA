@@ -46,8 +46,8 @@ class TelegramValidator:
                 # Revisamos los últimos 3 mensajes
                 async for message in self.client.iter_messages(target_bot, limit=3):
                     if message.text and "RENIEC ONLINE" in message.text and dni in message.text:
-                        # Extraer el dígito (Ej: "DNI => 73432697 - 1")
-                        match = re.search(r"DNI\s*=>\s*\d+\s*-\s*(\d+)", message.text)
+                        # Extraer el dígito (Ej: "DNI ⇒ 73432697 - 1")
+                        match = re.search(r"DNI\s*(?:=>|⇒)\s*\d+\s*-\s*(\d+)", message.text)
                         
                         if match:
                             digito_bot = match.group(1)
