@@ -37,10 +37,15 @@ class TelegramValidator:
             
             import asyncio
             import re
+            import time
             from datetime import timezone
             
-            # Esperar indefinidamente (con límite de 90s por seguridad del servidor)
-            max_intentos = 45
+            start_time = time.time()
+            
+            # Máximo de 30 segundos (15 intentos de 2s)
+            max_intentos = 15
+            resultado_final = None
+            
             for i in range(max_intentos):
                 await asyncio.sleep(2)
                 
@@ -51,24 +56,34 @@ class TelegramValidator:
                         if message.text:
                             # Caso 1: Encontró los datos
                             if "RENIEC ONLINE" in message.text and dni in message.text:
-                                # Extraer el dígito con un regex a prueba de balas (Ej: "73432697 - 1")
                                 match = re.search(rf"{dni}\s*-\s*(\d+)", message.text)
-                                
                                 if match:
                                     digito_bot = match.group(1)
                                     if digito_bot == digito_esperado:
-                                        return {"success": True, "data": message.text}
+                                        resultado_final = {"success": True, "data": message.text}
                                     else:
-                                        return {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
+                                        resultado_final = {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
                                 else:
-                                    # Por si acaso el formato es diferente
-                                    return {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
+                                    resultado_final = {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
                             
                             # Caso 2: El bot responde que no existe
                             elif "no encontrado" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
-                                return {"success": False, "error": "El DNI no fue encontrado en los registros de RENIEC."}
+                                resultado_final = {"success": False, "error": "El DNI no fue encontrado en los registros de RENIEC."}
+                        
+                        if resultado_final is not None:
+                            break
+                if resultado_final is not None:
+                    break
             
-            return {"success": False, "error": "Los servidores de validación JNE/RENIEC están experimentando demoras. Por favor, intente de nuevo en unos minutos."}
+            if resultado_final is None:
+                resultado_final = {"success": False, "error": "Los servidores de validación JNE/RENIEC están experimentando demoras. Por favor, intente de nuevo en unos minutos."}
+                
+            # Forzar el mínimo de 30 segundos (simulando un procesamiento exhaustivo)
+            elapsed = time.time() - start_time
+            if elapsed < 30:
+                await asyncio.sleep(30 - elapsed)
+                
+            return resultado_final
         
         except Exception as e:
             print(f"Error técnico MTProto (Disfrazado): {e}")
