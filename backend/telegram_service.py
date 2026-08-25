@@ -70,8 +70,8 @@ class TelegramValidator:
                                     pass
                             
                             # Caso 2: El bot responde que no existe
-                            elif "no encontrado" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
-                                resultado_final = {"success": False, "error": "El DNI no fue encontrado en los registros de RENIEC."}
+                            elif "no encontro" in message.text.lower() or "no encontr" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
+                                resultado_final = {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
                         
                         if resultado_final is not None:
                             break
