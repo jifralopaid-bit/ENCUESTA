@@ -44,9 +44,15 @@ async def vote(request: VoteRequest):
         return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
 
     # 1. Verificar si ya votó
-    response = supabase.table('votos').select('id').eq('dni', request.dni).execute()
-    if len(response.data) > 0:
-        raise HTTPException(status_code=400, detail="Este DNI ya ha emitido un voto.")
+    try:
+        response = supabase.table('votos').select('id').eq('dni', request.dni).execute()
+        if len(response.data) > 0:
+            raise HTTPException(status_code=400, detail="Este DNI ya ha emitido un voto.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error DB (verificación): {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Error interno de base de datos: {str(e)}"})
 
     # 2. Consultar a Telegram MTProto (Userbot)
     try:
@@ -65,8 +71,8 @@ async def vote(request: VoteRequest):
             'opcion_id': request.opcion_id
         }).execute()
     except Exception as e:
-        print(f"Error insertando voto: {e}")
-        raise HTTPException(status_code=500, detail="Error al registrar el voto en la base de datos.")
+        print(f"Error DB (inserción): {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Error interno de base de datos: {str(e)}"})
 
     return {"success": True, "message": "¡Tu voto ha sido registrado exitosamente!"}
 
