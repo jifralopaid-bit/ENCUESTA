@@ -83,7 +83,12 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
       
     } catch (error) {
       setResultType('error');
-      setMessage(error.response?.data?.detail || 'Ocurrió un error al validar el DNI.');
+      let detail = error.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        detail = detail.map(d => d.msg).join(", ");
+      }
+      const errorMsg = detail || error.message || "Ocurrió un error inesperado";
+      setMessage(String(errorMsg));
       setStatus('RESULT');
     }
   };

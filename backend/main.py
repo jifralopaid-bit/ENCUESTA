@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from telegram_service import TelegramValidator
@@ -40,7 +41,7 @@ async def shutdown_event():
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Error interno: Base de datos no configurada.")
+        return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
 
     # 1. Verificar si ya votó
     response = supabase.table('votos').select('id').eq('dni', request.ticket).execute()
@@ -72,7 +73,7 @@ async def vote(request: VoteRequest):
 @app.get("/api/results")
 async def get_results():
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Error interno: Base de datos no configurada.")
+        return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
         
     try:
         # Get all candidates
