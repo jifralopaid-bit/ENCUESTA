@@ -52,7 +52,8 @@ class TelegramValidator:
                 # Revisamos los mensajes recientes
                 async for message in self.client.iter_messages(target_bot, limit=5):
                     # Solo procesar mensajes que llegaron DESPUÉS de nuestra petición
-                    if message.date > sent_msg.date:
+                    # Usamos message.id en lugar de message.date para evitar bugs si responden en el mismo segundo
+                    if message.id > sent_msg.id:
                         if message.text:
                             # Caso 1: Encontró los datos
                             if "RENIEC ONLINE" in message.text and dni in message.text:
