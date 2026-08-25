@@ -54,18 +54,46 @@ const AdminDashboard = () => {
   };
 
   const addRegidor = () => {
-    setRegidores([
-      ...regidores, 
-      { id: Date.now(), nombre: '', cargo: '', hojaVidaPdfFile: null, hoja_vida_pdf_url: '' }
-    ]);
+    setRegidores([...regidores, { 
+      id: Date.now(), 
+      nombre: '', 
+      cargo: '', 
+      hoja_vida_pdf_url: '', 
+      hojaVidaPdfFile: null,
+      image_url: '',
+      fotoFile: null,
+      fotoPreview: null
+    }]);
   };
 
   const removeRegidor = (id) => {
-    setRegidores(regidores.filter(r => r.id !== id));
+    setRegidores(regidores.filter(reg => reg.id !== id));
   };
 
   const updateRegidor = (id, field, value) => {
-    setRegidores(regidores.map(r => r.id === id ? { ...r, [field]: value } : r));
+    setRegidores(regidores.map(reg => {
+      if (reg.id === id) {
+        const updated = { ...reg, [field]: value };
+        // Create preview if it's a photo file
+        if (field === 'fotoFile' && value) {
+          updated.fotoPreview = URL.createObjectURL(value);
+        }
+        return updated;
+      }
+      return reg;
+    }));
+  };
+
+  // Helper to handle candidate file changes with previews
+  const handleCandidatoFile = (field, file) => {
+    const updates = { [field]: file };
+    if (field === 'fotoFile' && file) {
+      updates.fotoPreview = URL.createObjectURL(file);
+    }
+    if (field === 'logoFile' && file) {
+      updates.logoPreview = URL.createObjectURL(file);
+    }
+    setCandidato(prev => ({ ...prev, ...updates }));
   };
 
   const uploadFile = async (file, folder) => {
@@ -193,11 +221,13 @@ const AdminDashboard = () => {
         const regidoresToInsert = [];
         for (const reg of regidores) {
           const regPdfUrl = await uploadFile(reg.hojaVidaPdfFile, 'hojas_vida_regidores') || reg.hoja_vida_pdf_url;
+          const regFotoUrl = await uploadFile(reg.fotoFile, 'fotos_regidores') || reg.image_url;
           regidoresToInsert.push({
             candidato_id: candId,
             nombre: reg.nombre,
             cargo: reg.cargo,
-            hoja_vida_pdf_url: regPdfUrl
+            hoja_vida_pdf_url: regPdfUrl,
+            image_url: regFotoUrl
           });
         }
 
@@ -328,12 +358,18 @@ const AdminDashboard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Foto de Perfil {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarla)</span>}
                     </label>
-                    <div className="flex items-center gap-3">
-                      <ImageIcon className="text-gray-400" size={24} />
+                    <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
+                        {(candidato.fotoPreview || candidato.image_url) ? (
+                          <img src={candidato.fotoPreview || candidato.image_url} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="text-gray-400" size={20} />
+                        )}
+                      </div>
                       <input 
                         type="file" accept="image/*" required={!editingId && !candidato.image_url}
-                        onChange={e => setCandidato({...candidato, fotoFile: e.target.files[0]})}
-                        className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                        onChange={e => handleCandidatoFile('fotoFile', e.target.files[0])}
+                        className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 flex-1"
                       />
                     </div>
                   </div>
@@ -342,12 +378,18 @@ const AdminDashboard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Logo del Partido {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarlo)</span>}
                     </label>
-                    <div className="flex items-center gap-3">
-                      <ImageIcon className="text-gray-400" size={24} />
+                    <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
+                        {(candidato.logoPreview || candidato.logo_partido_url) ? (
+                          <img src={candidato.logoPreview || candidato.logo_partido_url} alt="Preview" className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <ImageIcon className="text-gray-400" size={20} />
+                        )}
+                      </div>
                       <input 
                         type="file" accept="image/*" required={!editingId && !candidato.logo_partido_url}
-                        onChange={e => setCandidato({...candidato, logoFile: e.target.files[0]})}
-                        className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                        onChange={e => handleCandidatoFile('logoFile', e.target.files[0])}
+                        className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 flex-1"
                       />
                     </div>
                   </div>
@@ -432,7 +474,26 @@ const AdminDashboard = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Foto de Perfil {editingId && reg.image_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
+                              {(reg.fotoPreview || reg.image_url) ? (
+                                <img src={reg.fotoPreview || reg.image_url} alt="Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon className="text-gray-400" size={14} />
+                              )}
+                            </div>
+                            <input 
+                              type="file" accept="image/*" 
+                              onChange={e => updateRegidor(reg.id, 'fotoFile', e.target.files[0])}
+                              className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200"
+                            />
+                          </div>
+                        </div>
+                        <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">
                             Hoja de Vida (PDF) {editingId && reg.hoja_vida_pdf_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}
                           </label>

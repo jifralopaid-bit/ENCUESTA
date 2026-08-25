@@ -153,8 +153,11 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                       <div className="flex items-center gap-4">
                         <span className="text-gray-400 font-bold w-4 text-center">{index + 1}</span>
                         <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {/* Asumiendo que no hay foto de regidor, usamos un placeholder */}
-                          <User size={24} className="text-gray-400" />
+                          {reg.image_url ? (
+                            <img src={reg.image_url} alt={reg.nombre} className="w-full h-full object-cover" />
+                          ) : (
+                            <User size={24} className="text-gray-400" />
+                          )}
                         </div>
                         <div>
                           <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase block mb-0.5">
