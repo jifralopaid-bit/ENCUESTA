@@ -24,7 +24,7 @@ validator = TelegramValidator()
 class VoteRequest(BaseModel):
     dni: str
     digito_verificador: str
-    opcion_id: int
+    opcion_id: str
 
 @app.on_event("startup")
 async def startup_event():
