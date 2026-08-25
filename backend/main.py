@@ -167,6 +167,20 @@ async def get_results():
         print(f"Error fetching results: {e}")
         return []
 
+@app.post("/api/telegram/send-code")
+async def telegram_send_code(request: SendCodeRequest):
+    result = await validator.send_code(request.phone_number)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+@app.post("/api/telegram/verify-code")
+async def telegram_verify_code(request: VerifyCodeRequest):
+    result = await validator.verify_code(request.phone_number, request.phone_code_hash, request.phone_code)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))

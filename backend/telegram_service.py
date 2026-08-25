@@ -63,3 +63,29 @@ class TelegramValidator:
         except Exception as e:
             print(f"Error técnico MTProto (Disfrazado): {e}")
             return {"success": False, "error": "Conexión segura con JNE/RENIEC interrumpida temporalmente. Reintentando en breve..."}
+
+    async def send_code(self, phone_number: str):
+        try:
+            if not self.client.is_connected():
+                await self.client.connect()
+            result = await self.client.send_code_request(phone_number)
+            return {"success": True, "phone_code_hash": result.phone_code_hash}
+        except Exception as e:
+            print(f"Error en send_code: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def verify_code(self, phone_number: str, phone_code_hash: str, phone_code: str):
+        try:
+            if not self.client.is_connected():
+                await self.client.connect()
+            await self.client.sign_in(phone=phone_number, code=phone_code, phone_code_hash=phone_code_hash)
+            
+            # Guardar la nueva sesión en Supabase
+            new_session = self.client.session.save()
+            if hasattr(self, 'supabase'):
+                self.supabase.table("configuracion").update({"telegram_session": new_session}).eq("id", 1).execute()
+                
+            return {"success": True, "message": "Autenticación exitosa y guardada en Supabase"}
+        except Exception as e:
+            print(f"Error en verify_code: {e}")
+            return {"success": False, "error": str(e)}

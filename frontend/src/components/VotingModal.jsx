@@ -191,7 +191,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
               
               {/* Imagen de ayuda visual */}
               <img 
-                src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787690626/logo-JNE.png" 
+                src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787692415/LCCE4P37QNGG5IRLNK6BKJ2HYY_1.png" 
                 alt="Validación JNE" 
                 className="w-full max-w-[200px] sm:max-w-xs mx-auto rounded-md shadow-sm mb-3 border border-gray-200"
               />
