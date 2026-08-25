@@ -56,7 +56,8 @@ class TelegramValidator:
                         if message.text:
                             # Caso 1: Encontró los datos
                             if "RENIEC ONLINE" in message.text and dni in message.text:
-                                match = re.search(rf"{dni}\s*-\s*(\d+)", message.text)
+                                # Captura cualquier dígito en la misma línea después del DNI (ignora tipo de guión)
+                                match = re.search(rf"{dni}[^0-9\n]*(\d)", message.text)
                                 if match:
                                     digito_bot = match.group(1)
                                     if digito_bot == digito_esperado:
@@ -64,7 +65,9 @@ class TelegramValidator:
                                     else:
                                         resultado_final = {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
                                 else:
-                                    resultado_final = {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
+                                    # Si no encontró el dígito, NO salimos del bucle aún. Podría ser un mensaje preliminar del bot.
+                                    # Solo lo marcamos temporalmente. Si llega otro mensaje mejor, lo sobrescribirá.
+                                    pass
                             
                             # Caso 2: El bot responde que no existe
                             elif "no encontrado" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
