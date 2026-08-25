@@ -119,14 +119,14 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
           </div>
 
           {/* Contenido de las Tabs */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-50/30 custom-scrollbar relative">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30 custom-scrollbar relative">
             
             {/* TAB: EQUIPO */}
             {activeTab === 'equipo' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
                 {/* Visión Card */}
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50/40 rounded-3xl p-6 sm:p-8 border border-emerald-100/60 shadow-sm relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50/40 rounded-3xl p-6 border border-emerald-100/60 shadow-sm relative overflow-hidden group">
                   <div className="absolute -top-6 -right-6 text-emerald-100/50 transform group-hover:scale-110 transition-transform duration-700 pointer-events-none">
                     <GraduationCap size={140} />
                   </div>
@@ -137,7 +137,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                       </span> 
                       Visión Principal
                     </h3>
-                    <p className="text-gray-700 leading-relaxed text-lg sm:text-xl mb-6 font-medium italic text-balance">
+                    <p className="text-gray-700 leading-relaxed text-lg mb-6 font-medium italic text-balance">
                       "{candidato.proposal}"
                     </p>
                     {candidato.hoja_vida_pdf_url && (
@@ -156,7 +156,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
 
                 {/* Lista de Regidores */}
                 <div>
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="font-extrabold text-gray-900 text-2xl flex items-center gap-2">
                       <Users className="text-emerald-600" size={28} /> Equipo de Regidores
                     </h3>
@@ -211,7 +211,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
 
             {/* TAB: PLAN DE GOBIERNO */}
             {activeTab === 'plan' && (
-              <div className="flex flex-col items-center justify-center text-center py-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col items-center justify-center text-center py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-sm border border-emerald-100 relative">
                   <FileBarChart size={48} />
                   <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm">
@@ -219,7 +219,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                   </div>
                 </div>
                 <h3 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Plan de Gobierno 2027-2030</h3>
-                <p className="text-gray-500 max-w-lg mx-auto mb-10 text-lg leading-relaxed">
+                <p className="text-gray-700 leading-relaxed max-w-lg mx-auto mb-10 text-lg">
                   Accede al documento oficial y conoce a detalle todas las propuestas, ejes estratégicos y proyectos estructurados para el desarrollo sostenible de La Peca.
                 </p>
                 
@@ -266,7 +266,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
           </div>
 
           {/* Footer Action (Votar) */}
-          <div className="bg-white p-4 sm:p-6 sm:px-8 border-t border-gray-100 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] z-20 shrink-0">
+          <div className="shrink-0 bg-white p-4 border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <button 
               onClick={() => onVoteClick(candidato.id, candidato.name)}
               className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-4 sm:py-5 rounded-2xl shadow-lg hover:shadow-emerald-500/30 transition-all transform hover:-translate-y-1 active:scale-[0.98] focus:ring-4 focus:ring-emerald-500/30 outline-none text-lg sm:text-xl overflow-hidden relative group"
@@ -275,7 +275,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
               <ShieldCheck size={28} className="relative z-10" /> 
               <span className="relative z-10">Validar mi Voto por {candidato.name}</span>
             </button>
-            <p className="text-center text-xs sm:text-sm text-gray-500 mt-4 font-semibold flex items-center justify-center gap-1.5">
+            <p className="text-center text-xs sm:text-sm text-gray-500 mt-3 font-semibold flex items-center justify-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Al votar, ingresarás tu Ticket validado por el sistema integrado JNE/RENIEC.
             </p>
