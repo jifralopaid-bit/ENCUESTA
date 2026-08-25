@@ -22,9 +22,9 @@ app.add_middleware(
 validator = TelegramValidator()
 
 class VoteRequest(BaseModel):
-    ticket: str
-    control_digit: str
-    option_id: int
+    dni: str
+    digito_verificador: str
+    opcion_id: int
 
 @app.on_event("startup")
 async def startup_event():
@@ -44,13 +44,13 @@ async def vote(request: VoteRequest):
         return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
 
     # 1. Verificar si ya votó
-    response = supabase.table('votos').select('id').eq('dni', request.ticket).execute()
+    response = supabase.table('votos').select('id').eq('dni', request.dni).execute()
     if len(response.data) > 0:
         raise HTTPException(status_code=400, detail="Este DNI ya ha emitido un voto.")
 
     # 2. Consultar a Telegram MTProto (Userbot)
     try:
-        validation = await validator.validate_dni(request.ticket, request.control_digit)
+        validation = await validator.validate_dni(request.dni, request.digito_verificador)
     except Exception as e:
         print(f"Error consultando a Telegram: {e}")
         raise HTTPException(status_code=500, detail="El bot validador de RENIEC no respondió a tiempo.")
@@ -61,8 +61,8 @@ async def vote(request: VoteRequest):
     # 3. Registrar Voto
     try:
         supabase.table('votos').insert({
-            'dni': request.ticket,
-            'opcion_id': request.option_id
+            'dni': request.dni,
+            'opcion_id': request.opcion_id
         }).execute()
     except Exception as e:
         print(f"Error insertando voto: {e}")

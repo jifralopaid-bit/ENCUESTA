@@ -66,11 +66,12 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
 
   const executeVote = async () => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/vote`, {
-        ticket: ticket,
-        control_digit: controlDigit,
-        option_id: candidate.id
-      });
+      const payload = {
+        dni: String(ticket),
+        digito_verificador: String(controlDigit),
+        opcion_id: candidate.id
+      };
+      const response = await axios.post(`${BACKEND_URL}/api/vote`, payload);
       
       setResultType('success');
       setMessage(response.data.message || 'Voto registrado exitosamente.');
@@ -82,13 +83,22 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
       }, 2500);
       
     } catch (error) {
-      setResultType('error');
-      let detail = error.response?.data?.detail;
-      if (Array.isArray(detail)) {
-        detail = detail.map(d => d.msg).join(", ");
+      console.error("Error completo:", error);
+      let errorMessage = "Ocurrió un error al procesar tu solicitud.";
+      
+      if (error.response && error.response.data && error.response.data.detail) {
+          // FastAPI devuelve los errores de validación (422) como un array de objetos o un string
+          if (typeof error.response.data.detail === 'string') {
+              errorMessage = error.response.data.detail;
+          } else if (Array.isArray(error.response.data.detail)) {
+               errorMessage = "Verifica que el DNI y el dígito sean correctos.";
+          }
+      } else if (error.message) {
+          errorMessage = error.message;
       }
-      const errorMsg = detail || error.message || "Ocurrió un error inesperado";
-      setMessage(String(errorMsg));
+      
+      setResultType('error');
+      setMessage(String(errorMessage));
       setStatus('RESULT');
     }
   };
