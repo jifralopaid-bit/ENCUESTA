@@ -4,8 +4,8 @@ import json
 import asyncio
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-from supabase import create_client, Client
 from dotenv import load_dotenv
+from supabase_client import supabase
 
 load_dotenv()
 
@@ -14,14 +14,7 @@ class TelegramValidator:
         self.api_id = 30647648
         self.api_hash = 'bb0e1e43bc59d89507413988fb5d4fa3'
         self.bot_username = '@DOMINUSDOX_BOT'
-        
-        supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
-        supabase_key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
-        
-        if supabase_url and supabase_key:
-            self.supabase: Client = create_client(supabase_url, supabase_key)
-        else:
-            self.supabase = None
+        self.supabase = supabase
         
         self.client = None
 
@@ -67,56 +60,73 @@ class TelegramValidator:
             await self.client.disconnect()
 
     async def validate_dni(self, ticket: str, input_control_digit: str):
-        if not self.client or not self.client.is_connected():
-            await self.start()
+        try:
+            print("1. Iniciando cliente de Telethon...")
+            if not self.client or not self.client.is_connected():
+                await self.start()
+                
+            if not self.client or not self.client.is_connected():
+                raise Exception("No se pudo establecer la conexión a Telegram.")
+
+            print("2. Telethon conectado.")
             
-        command = f"/dni {ticket}"
-        
-        # Send message to bot
-        await self.client.send_message(self.bot_username, command)
-        
-        # Poll for response
-        bot_response = None
-        for _ in range(10): # Esperar hasta 10 segundos
-            await asyncio.sleep(1)
-            messages = await self.client.get_messages(self.bot_username, limit=1)
-            if messages:
-                msg = messages[0].message
-                if msg and msg != command and ("DNI" in msg or "EDAD" in msg):
-                    bot_response = msg
-                    break
-                    
-        if not bot_response:
-            return {"valid": False, "message": "El bot validador de RENIEC no respondió a tiempo."}
+            command = f"/dni {ticket}"
+            print(f"3. Enviando DNI al bot: {command}")
             
-        # Parse response using required regex
-        text_clean = re.sub(r'[\*`]', '', bot_response)
-        
-        # Dígito
-        digit_match = re.search(r'DNI.*?-\s*([0-9Kk])', text_clean, re.IGNORECASE)
-        bot_digit = digit_match.group(1).upper() if digit_match else None
-        
-        # Edad
-        age_match = re.search(r'EDAD.*?(\d+)\s*A[ÑN]OS', text_clean, re.IGNORECASE)
-        score = int(age_match.group(1)) if age_match else None
-        
-        # Distrito (Last match)
-        location_matches = re.findall(r'DISTRITO.*?[➾=>⇒:]\s*([A-Za-z\s]+)', text_clean, re.IGNORECASE)
-        location = None
-        if location_matches:
-            location = location_matches[-1].split('\n')[0].strip().upper()
+            # Send message to bot
+            await self.client.send_message(self.bot_username, command)
             
-        if not bot_digit or score is None or not location:
-            print(f"Error parsing. Msg: {text_clean}")
-            return {"valid": False, "message": "No se pudo extraer toda la información del bot validador."}
+            print("4. Esperando respuesta del bot...")
             
-        if str(input_control_digit).upper() != bot_digit:
-            return {"valid": False, "message": f"El dígito de control no coincide. Esperado: {bot_digit}, Ingresado: {input_control_digit}"}
+            async def poll_for_response():
+                while True:
+                    await asyncio.sleep(1)
+                    messages = await self.client.get_messages(self.bot_username, limit=1)
+                    if messages:
+                        msg = messages[0].message
+                        if msg and msg != command and ("DNI" in msg or "EDAD" in msg):
+                            return msg
+                            
+            try:
+                bot_response = await asyncio.wait_for(poll_for_response(), timeout=15.0)
+                print(f"Respuesta del bot recibida.")
+            except asyncio.TimeoutError:
+                print("TIMEOUT: El bot no respondió")
+                return {"valid": False, "message": "El bot validador de RENIEC no respondió a tiempo."}
+                
+            # Parse response using required regex
+            text_clean = re.sub(r'[\*`]', '', bot_response)
             
-        if score < 18:
-            return {"valid": False, "message": f"Debes ser mayor de edad para votar. Edad registrada: {score} años."}
+            # Dígito
+            digit_match = re.search(r'DNI.*?-\s*([0-9Kk])', text_clean, re.IGNORECASE)
+            bot_digit = digit_match.group(1).upper() if digit_match else None
             
-        if location != "LA PECA":
-            return {"valid": False, "message": f"Solo pueden votar residentes del distrito de LA PECA. Tu distrito es: {location}."}
+            # Edad
+            age_match = re.search(r'EDAD.*?(\d+)\s*A[ÑN]OS', text_clean, re.IGNORECASE)
+            score = int(age_match.group(1)) if age_match else None
             
-        return {"valid": True}
+            # Distrito (Last match)
+            location_matches = re.findall(r'DISTRITO.*?[➾=>⇒:]\s*([A-Za-z\s]+)', text_clean, re.IGNORECASE)
+            location = None
+            if location_matches:
+                location = location_matches[-1].split('\n')[0].strip().upper()
+                
+            if not bot_digit or score is None or not location:
+                print(f"Error parseando mensaje del bot: {text_clean}")
+                return {"valid": False, "message": "No se pudo extraer toda la información del bot validador."}
+                
+            if str(input_control_digit).upper() != bot_digit:
+                return {"valid": False, "message": f"El dígito de control no coincide. Esperado: {bot_digit}, Ingresado: {input_control_digit}"}
+                
+            if score < 18:
+                return {"valid": False, "message": f"Debes ser mayor de edad para votar. Edad registrada: {score} años."}
+                
+            if location != "LA PECA":
+                return {"valid": False, "message": f"Solo pueden votar residentes del distrito de LA PECA. Tu distrito es: {location}."}
+                
+            print("5. Validación completada con éxito.")
+            return {"valid": True}
+
+        except Exception as e:
+            print(f"ERROR CRÍTICO EN TELEGRAM: {str(e)}")
+            return {"valid": False, "message": "Error interno de conexión con el validador."}
