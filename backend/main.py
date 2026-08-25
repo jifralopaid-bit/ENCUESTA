@@ -99,6 +99,10 @@ async def process_vote_queue():
             print(f"Error DB (inserción): {e}")
             ticket_status[ticket_id] = {"status": "ERROR", "message": "Error interno al registrar el voto en los servidores centrales."}
 
+        # Cooldown anti-spam de Telegram
+        # Evita que el bot de RENIEC nos ignore por mandar comandos demasiado rápido (SPAM protection)
+        await asyncio.sleep(4)
+
 
 @app.on_event("startup")
 async def startup_event():
