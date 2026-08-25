@@ -17,6 +17,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   const [queuePosition, setQueuePosition] = useState(0);
 
   const [ticketId, setTicketId] = useState(null);
+  const [totalQueueLength, setTotalQueueLength] = useState(0);
 
   // Efecto para la simulación de la cola
   useEffect(() => {
@@ -66,6 +67,29 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
       if (queueTimer) clearInterval(queueTimer);
     };
   }, [status, ticketId]);
+
+  // Efecto para obtener el tamaño de la cola antes de votar
+  useEffect(() => {
+    let lengthTimer;
+
+    const fetchQueueLength = async () => {
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/vote/queue-length`);
+        setTotalQueueLength(response.data.length);
+      } catch (error) {
+        console.error("Error fetching queue length:", error);
+      }
+    };
+
+    if (isOpen && status === 'IDLE') {
+      fetchQueueLength();
+      lengthTimer = setInterval(fetchQueueLength, 4000); // Poll cada 4s
+    }
+
+    return () => {
+      if (lengthTimer) clearInterval(lengthTimer);
+    };
+  }, [isOpen, status]);
 
   if (!isOpen) return null;
 
@@ -156,11 +180,20 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         </div>
 
         {/* Banner de Advertencia */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 flex items-start">
-          <Info className="text-blue-600 mt-0.5 mr-3 flex-shrink-0" size={18} />
-          <p className="text-xs sm:text-sm text-blue-800 font-medium leading-relaxed">
-            Por favor, verifica detenidamente que tu DNI y Dígito Verificador sean correctos antes de que llegue tu turno en la cola.
-          </p>
+        <div className="bg-blue-50 border border-blue-100 text-blue-800 px-4 py-3 rounded-lg text-sm flex gap-3 mb-4 sm:mb-6">
+          <Info className="flex-shrink-0 text-blue-500 mt-0.5" size={18} />
+          <div>
+            <p>
+              Por favor, verifica detenidamente que tu DNI y Dígito Verificador sean correctos antes de enviar tu voto.
+            </p>
+            <p className="mt-1 font-semibold text-blue-900 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
+              {totalQueueLength === 0 
+                ? "No hay personas en la cola. ¡Tu validación será inmediata!" 
+                : `Hay ${totalQueueLength} persona${totalQueueLength > 1 ? 's' : ''} esperando en la cola actualmente.`
+              }
+            </p>
+          </div>
         </div>
 
         {isProcessing ? (

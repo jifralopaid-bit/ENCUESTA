@@ -137,6 +137,12 @@ async def get_vote_status(ticket_id: str):
                     
     return {"status": status, "position": position, "message": message}
 
+@app.get("/api/vote/queue-length")
+async def get_queue_length():
+    async with queue_lock:
+        length = len(queue_list)
+    return {"length": length}
+
 # El endpoint antiguo /api/vote lo quitamos o dejamos para retrocompatibilidad, pero lo ideal es usar enqueue.
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
