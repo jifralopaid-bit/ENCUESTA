@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TelegramClient, Api } from 'telegram';
-import { StringSession } from 'telegram/sessions';
+import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { Smartphone, CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
 
-const API_ID = 30647648;
-const API_HASH = 'bb0e1e43bc59d89507413988fb5d4fa3';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const TelegramConfig = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -16,8 +14,6 @@ const TelegramConfig = () => {
   const [step, setStep] = useState('CHECKING'); // CHECKING, ENTER_PHONE, ENTER_CODE, CONNECTED
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const [client, setClient] = useState(null);
 
   useEffect(() => {
     checkExistingSession();
@@ -27,12 +23,12 @@ const TelegramConfig = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('candidatos')
-        .select('proposal')
-        .eq('name', '___telegram_session___')
+        .from('configuracion')
+        .select('telegram_session')
+        .eq('id', 1)
         .single();
       
-      if (data && data.proposal) {
+      if (data && data.telegram_session && data.telegram_session.trim() !== '') {
         setStep('CONNECTED');
       } else {
         setStep('ENTER_PHONE');
@@ -44,39 +40,21 @@ const TelegramConfig = () => {
     setLoading(false);
   };
 
-  const initClient = () => {
-    if (client) return client;
-    const stringSession = new StringSession(''); 
-    const newClient = new TelegramClient(stringSession, API_ID, API_HASH, {
-      connectionRetries: 5,
-      useWSS: true,
-    });
-    setClient(newClient);
-    return newClient;
-  };
-
   const handleSendCode = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
     try {
-      const tgClient = initClient();
-      await tgClient.connect();
+      const response = await axios.post(`${BACKEND_URL}/api/telegram/send-code`, {
+        phone_number: phoneNumber
+      });
       
-      const { phoneCodeHash } = await tgClient.sendCode(
-        {
-          apiId: API_ID,
-          apiHash: API_HASH,
-        },
-        phoneNumber
-      );
-      
-      setPhoneCodeHash(phoneCodeHash);
+      setPhoneCodeHash(response.data.phone_code_hash);
       setStep('ENTER_CODE');
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Error al enviar código SMS.');
+      setError(e.response?.data?.detail || e.message || 'Error al enviar código SMS.');
     }
     setLoading(false);
   };
@@ -87,33 +65,16 @@ const TelegramConfig = () => {
     setError('');
     
     try {
-      if (!client) throw new Error("Cliente no inicializado");
-      
-      await client.invoke(
-        new Api.auth.SignIn({
-          phoneNumber: phoneNumber,
-          phoneCodeHash: phoneCodeHash,
-          phoneCode: phoneCode,
-        })
-      );
-      
-      // Guardar sesión y botUsername
-      const sessionString = client.session.save();
-      const config = JSON.stringify({ session: sessionString, botUsername: botUsername });
-      
-      const { data: existing } = await supabase.from('candidatos').select('id').eq('name', '___telegram_session___').single();
-      
-      if (existing) {
-        await supabase.from('candidatos').update({ proposal: config }).eq('id', existing.id);
-      } else {
-        await supabase.from('candidatos').insert({ name: '___telegram_session___', proposal: config });
-      }
+      await axios.post(`${BACKEND_URL}/api/telegram/verify-code`, {
+        phone_number: phoneNumber,
+        phone_code_hash: phoneCodeHash,
+        phone_code: phoneCode
+      });
       
       setStep('CONNECTED');
-      
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Código incorrecto o expirado.');
+      setError(e.response?.data?.detail || e.message || 'Código incorrecto o expirado.');
     }
     setLoading(false);
   };
@@ -121,9 +82,7 @@ const TelegramConfig = () => {
   const handleDisconnect = async () => {
     if (window.confirm("¿Estás seguro de desconectar el Bot de Telegram? Los usuarios no podrán votar hasta que conectes uno nuevo.")) {
       setLoading(true);
-      await supabase.from('candidatos').delete().eq('name', '___telegram_session___');
-      if (client) await client.disconnect();
-      setClient(null);
+      await supabase.from('configuracion').update({ telegram_session: '' }).eq('id', 1);
       setPhoneNumber('');
       setPhoneCode('');
       setStep('ENTER_PHONE');

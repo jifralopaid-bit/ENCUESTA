@@ -26,6 +26,16 @@ class VoteRequest(BaseModel):
     digito_verificador: str
     opcion_id: str
 
+class SendCodeRequest(BaseModel):
+    phone_number: str
+
+class VerifyCodeRequest(BaseModel):
+    phone_number: str
+    phone_code_hash: str
+    phone_code: str
+
+temp_clients = {}
+
 @app.on_event("startup")
 async def startup_event():
     try:
@@ -106,6 +116,50 @@ async def get_results():
     except Exception as e:
         print(f"Error fetching results: {e}")
         return []
+
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+
+@app.post("/api/telegram/send-code")
+async def send_code(req: SendCodeRequest):
+    if supabase is None:
+        raise HTTPException(status_code=500, detail="Base de datos no conectada")
+    
+    client = TelegramClient(StringSession(''), validator.api_id, validator.api_hash)
+    await client.connect()
+    
+    try:
+        sent = await client.send_code_request(req.phone_number)
+        temp_clients[req.phone_number] = client
+        return {"phone_code_hash": sent.phone_code_hash}
+    except Exception as e:
+        await client.disconnect()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/telegram/verify-code")
+async def verify_code(req: VerifyCodeRequest):
+    if req.phone_number not in temp_clients:
+        raise HTTPException(status_code=400, detail="Debe solicitar un código SMS primero.")
+        
+    client = temp_clients[req.phone_number]
+    
+    try:
+        await client.sign_in(req.phone_number, req.phone_code, phone_code_hash=req.phone_code_hash)
+        session_string = client.session.save()
+        
+        if supabase:
+            supabase.table('configuracion').update({'telegram_session': session_string}).eq('id', 1).execute()
+            
+        # Reiniciar validador principal
+        await validator.stop()
+        await validator.start()
+        
+        # Cleanup
+        del temp_clients[req.phone_number]
+        
+        return {"success": True, "message": "Bot conectado exitosamente a través del backend."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

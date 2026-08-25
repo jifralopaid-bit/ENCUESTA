@@ -25,20 +25,12 @@ class TelegramValidator:
                 return
 
             # Read StringSession from Supabase
-            response = self.supabase.table('candidatos').select('proposal').eq('name', '___telegram_session___').execute()
+            response = self.supabase.table('configuracion').select('telegram_session').eq('id', 1).execute()
             if len(response.data) == 0:
                 raise RuntimeError("No hay sesión de Telegram guardada en la base de datos.")
                 
-            proposal_str = response.data[0]['proposal']
-            session_string = ""
+            session_string = response.data[0].get('telegram_session', "")
             
-            try:
-                config = json.loads(proposal_str)
-                session_string = config.get("session", "")
-                self.bot_username = config.get("botUsername", self.bot_username)
-            except:
-                session_string = proposal_str
-                
             if not session_string:
                 raise RuntimeError("Sesión inválida en la base de datos.")
 
