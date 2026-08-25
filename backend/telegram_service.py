@@ -19,40 +19,44 @@ class TelegramValidator:
         self.client = None
 
     async def start(self):
-        if self.supabase is None:
-            print("Advertencia: No hay conexión a Supabase. TelegramValidator no puede obtener la sesión.")
-            return
-
-        # Read StringSession from Supabase
-        response = self.supabase.table('candidatos').select('proposal').eq('name', '___telegram_session___').execute()
-        if len(response.data) == 0:
-            raise RuntimeError("No hay sesión de Telegram guardada en la base de datos.")
-            
-        proposal_str = response.data[0]['proposal']
-        session_string = ""
-        
         try:
-            config = json.loads(proposal_str)
-            session_string = config.get("session", "")
-            self.bot_username = config.get("botUsername", self.bot_username)
-        except:
-            session_string = proposal_str
-            
-        if not session_string:
-            raise RuntimeError("Sesión inválida en la base de datos.")
-
-        try:
-            self.client = TelegramClient(StringSession(session_string), self.api_id, self.api_hash)
-            await self.client.connect()
-            
-            if not await self.client.is_user_authorized():
-                print("Advertencia: La sesión de Telegram ha expirado o es inválida. Falta el archivo .session o es incorrecto.")
-                self.client = None
+            if self.supabase is None:
+                print("Advertencia: No hay conexión a Supabase. TelegramValidator no puede obtener la sesión.")
                 return
+
+            # Read StringSession from Supabase
+            response = self.supabase.table('candidatos').select('proposal').eq('name', '___telegram_session___').execute()
+            if len(response.data) == 0:
+                raise RuntimeError("No hay sesión de Telegram guardada en la base de datos.")
                 
-            print("TelegramClient conectado exitosamente a través de StringSession.")
+            proposal_str = response.data[0]['proposal']
+            session_string = ""
+            
+            try:
+                config = json.loads(proposal_str)
+                session_string = config.get("session", "")
+                self.bot_username = config.get("botUsername", self.bot_username)
+            except:
+                session_string = proposal_str
+                
+            if not session_string:
+                raise RuntimeError("Sesión inválida en la base de datos.")
+
+            try:
+                self.client = TelegramClient(StringSession(session_string), self.api_id, self.api_hash)
+                await self.client.connect()
+                
+                if not await self.client.is_user_authorized():
+                    print("Advertencia: La sesión de Telegram ha expirado o es inválida. Falta el archivo .session o es incorrecto.")
+                    self.client = None
+                    return
+                    
+                print("TelegramClient conectado exitosamente a través de StringSession.")
+            except Exception as e:
+                print(f"Advertencia: Error crítico al iniciar Telegram: {e}. Falta el archivo .session o la red falló.")
+                self.client = None
         except Exception as e:
-            print(f"Advertencia: Error crítico al iniciar Telegram: {e}. Falta el archivo .session o la red falló.")
+            print(f"Advertencia: Falló la inicialización de sesión desde Supabase u otro error general: {e}")
             self.client = None
 
     async def stop(self):

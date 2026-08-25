@@ -84,21 +84,9 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
       
     } catch (error) {
       console.error("Error completo:", error);
-      let errorMessage = "Ocurrió un error al procesar tu solicitud.";
-      
-      if (error.response && error.response.data && error.response.data.detail) {
-          // FastAPI devuelve los errores de validación (422) como un array de objetos o un string
-          if (typeof error.response.data.detail === 'string') {
-              errorMessage = error.response.data.detail;
-          } else if (Array.isArray(error.response.data.detail)) {
-               errorMessage = "Verifica que el DNI y el dígito sean correctos.";
-          }
-      } else if (error.message) {
-          errorMessage = error.message;
-      }
-      
+      const errorData = error.response?.data?.detail || error.message || "Error desconocido";
       setResultType('error');
-      setMessage(String(errorMessage));
+      setMessage(typeof errorData === 'string' ? errorData : JSON.stringify(errorData));
       setStatus('RESULT');
     }
   };
