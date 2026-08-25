@@ -16,32 +16,51 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   
   const [queuePosition, setQueuePosition] = useState(0);
 
+  const [ticketId, setTicketId] = useState(null);
+
   // Efecto para la simulación de la cola
   useEffect(() => {
     let queueTimer;
-    if (status === 'IN_QUEUE') {
-      // Simulamos posición inicial en cola
-      setQueuePosition(Math.floor(Math.random() * 3) + 2); 
+    
+    const checkStatus = async () => {
+      if (!ticketId) return;
       
-      let currentPos = queuePosition || 3;
-      
-      queueTimer = setInterval(() => {
-        currentPos -= 1;
-        setQueuePosition(currentPos);
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/vote/status/${ticketId}`);
+        const data = response.data;
         
-        if (currentPos <= 0) {
-          clearInterval(queueTimer);
-          // Pasar a procesamiento real (bloquea inputs)
+        if (data.status === 'IN_QUEUE') {
+          setQueuePosition(data.position);
+        } else if (data.status === 'PROCESSING') {
           setStatus('PROCESSING');
-          executeVote();
+        } else if (data.status === 'SUCCESS') {
+          setResultType('success');
+          setMessage(data.message);
+          setStatus('RESULT');
+          setTicketId(null);
+          setTimeout(() => {
+            onVoteSuccess();
+            handleClose();
+          }, 2500);
+        } else if (data.status === 'ERROR') {
+          setResultType('error');
+          setMessage(data.message);
+          setStatus('RESULT');
+          setTicketId(null);
         }
-      }, 1500); // 1.5s por cada posición en la cola
+      } catch (error) {
+        console.error("Error consultando estado:", error);
+      }
+    };
+    
+    if (status === 'IN_QUEUE' || status === 'PROCESSING') {
+      queueTimer = setInterval(checkStatus, 2000); // Poll cada 2 segundos
     }
     
     return () => {
       if (queueTimer) clearInterval(queueTimer);
     };
-  }, [status]);
+  }, [status, ticketId]);
 
   if (!isOpen) return null;
 
@@ -60,35 +79,30 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
       return;
     }
     
-    // Entrar a la cola (los inputs siguen editables)
-    setStatus('IN_QUEUE');
-  };
-
-  const executeVote = async () => {
+    // Entrar a la cola real llamando al backend
     try {
       const payload = {
         dni: String(ticket),
         digito_verificador: String(controlDigit),
         opcion_id: candidate.id
       };
-      const response = await axios.post(`${BACKEND_URL}/api/vote`, payload);
+      setStatus('PROCESSING'); // Mostrar un loader rápido mientras obtiene el ticket
+      const response = await axios.post(`${BACKEND_URL}/api/vote/enqueue`, payload);
       
-      setResultType('success');
-      setMessage(response.data.message || 'Voto registrado exitosamente.');
-      setStatus('RESULT');
-      
-      setTimeout(() => {
-        onVoteSuccess();
-        handleClose();
-      }, 2500);
+      setTicketId(response.data.ticket_id);
+      setStatus('IN_QUEUE');
       
     } catch (error) {
-      console.error("Error completo:", error);
-      const errorData = error.response?.data?.detail || error.message || "Error desconocido";
+      console.error("Error al encolar:", error);
+      const errorData = error.response?.data?.detail || error.message || "Error al conectar con los servidores centrales.";
       setResultType('error');
       setMessage(typeof errorData === 'string' ? errorData : JSON.stringify(errorData));
       setStatus('RESULT');
     }
+  };
+
+  const executeVote = async () => {
+    // Ya no se usa executeVote directamente, lo maneja el polling del useEffect
   };
 
   const handleClose = () => {
@@ -96,7 +110,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
     setControlDigit('');
     setStatus('IDLE');
     setResultType(null);
-    setMessage('');
+    setTicketId(null);
     onClose();
   };
 
@@ -147,9 +161,9 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         {isProcessing ? (
           <div className="py-8 flex flex-col items-center justify-center space-y-4">
             <Loader2 size={46} className="text-emerald-600 animate-spin" />
-            <p className="font-semibold text-gray-800 text-lg">Validando con RENIEC...</p>
+            <p className="font-semibold text-gray-800 text-lg text-center">Validando con JNE/RENIEC...</p>
             <p className="text-sm text-gray-500 text-center px-4">
-              Por favor no cierres la ventana. Estamos procesando tu turno.
+              Por favor no cierres la ventana. La validación oficial puede tomar unos segundos.
             </p>
           </div>
         ) : (
@@ -177,8 +191,8 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
               
               {/* Imagen de ayuda visual */}
               <img 
-                src="https://res.cloudinary.com/dipbgu7dd/image/upload/v1787328685/LCCE4P37QNGG5IRLNK6BKJ2HYY_anlmfw.png" 
-                alt="Guía Dígito Verificador" 
+                src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787690626/logo-JNE.png" 
+                alt="Validación JNE" 
                 className="w-full max-w-[200px] sm:max-w-xs mx-auto rounded-md shadow-sm mb-3 border border-gray-200"
               />
 

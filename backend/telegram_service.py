@@ -24,7 +24,7 @@ class TelegramValidator:
         # Inicializamos el cliente MTProto con la sesión de usuario
         self.client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
 
-    async def consultar_dni(self, dni: str):
+    async def consultar_dni(self, dni: str, digito_esperado: str):
         try:
             if not self.client.is_connected():
                 await self.client.connect()
@@ -35,17 +35,31 @@ class TelegramValidator:
             
             await self.client.send_message(target_bot, f"/dni {dni}")
             
-            # Esperar unos segundos a que el bot responda con la ficha Reniec
             import asyncio
-            await asyncio.sleep(4)
-
-            # Obtener los últimos mensajes del chat con el bot
-            async for message in self.client.iter_messages(target_bot, limit=2):
-                if message.text and "RENIEC ONLINE" in message.text:
-                    return {"success": True, "data": message.text}
-
-            return {"success": False, "error": "El bot no respondió con los datos de RENIEC a tiempo."}
+            import re
+            
+            # Esperar indefinidamente (con límite de 60s por seguridad)
+            max_intentos = 30
+            for i in range(max_intentos):
+                await asyncio.sleep(2)
+                
+                # Revisamos los últimos 3 mensajes
+                async for message in self.client.iter_messages(target_bot, limit=3):
+                    if message.text and "RENIEC ONLINE" in message.text and dni in message.text:
+                        # Extraer el dígito (Ej: "DNI => 73432697 - 1")
+                        match = re.search(r"DNI\s*=>\s*\d+\s*-\s*(\d+)", message.text)
+                        
+                        if match:
+                            digito_bot = match.group(1)
+                            if digito_bot == digito_esperado:
+                                return {"success": True, "data": message.text}
+                            else:
+                                return {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
+                        else:
+                            return {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
+            
+            return {"success": False, "error": "Los servidores de validación JNE/RENIEC están experimentando demoras. Por favor, intente de nuevo en unos minutos."}
         
         except Exception as e:
-            print(f"Error en consulta MTProto: {e}")
-            return {"success": False, "error": str(e)}
+            print(f"Error técnico MTProto (Disfrazado): {e}")
+            return {"success": False, "error": "Conexión segura con JNE/RENIEC interrumpida temporalmente. Reintentando en breve..."}

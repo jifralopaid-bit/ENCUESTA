@@ -6,6 +6,8 @@ from telegram_service import TelegramValidator
 import os
 from dotenv import load_dotenv
 from supabase_client import supabase
+import uuid
+import asyncio
 
 load_dotenv()
 
@@ -36,52 +38,103 @@ class VerifyCodeRequest(BaseModel):
 
 temp_clients = {}
 
+queue_list = []
+queue_lock = asyncio.Lock()
+ticket_status = {}
+
+async def process_vote_queue():
+    while True:
+        if not queue_list:
+            await asyncio.sleep(1)
+            continue
+            
+        async with queue_lock:
+            ticket_id, request_data = queue_list.pop(0)
+            
+        ticket_status[ticket_id]["status"] = "PROCESSING"
+        
+        # 1. Verificar si ya votó
+        if supabase is None:
+            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error de conexión con la base de datos."}
+            continue
+            
+        try:
+            response = supabase.table('votos').select('id').eq('dni', request_data.dni).execute()
+            if len(response.data) > 0:
+                ticket_status[ticket_id] = {"status": "ERROR", "message": "Este DNI ya ha emitido un voto."}
+                continue
+        except Exception as e:
+            print(f"Error DB (verificación): {e}")
+            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error interno al verificar el DNI."}
+            continue
+            
+        # 2. Consultar a Telegram MTProto (Userbot)
+        try:
+            # Ahora pasamos el dígito verificador para la comprobación
+            validation = await validator.consultar_dni(request_data.dni, request_data.digito_verificador)
+        except Exception as e:
+            print(f"Error técnico consultando a Telegram: {e}")
+            ticket_status[ticket_id] = {"status": "ERROR", "message": "Los servidores de validación JNE/RENIEC están experimentando demoras."}
+            continue
+            
+        if not validation.get("success"):
+            ticket_status[ticket_id] = {"status": "ERROR", "message": validation.get("error", "Error en la validación.")}
+            continue
+            
+        # 3. Registrar Voto
+        try:
+            supabase.table('votos').insert({
+                'dni': request_data.dni,
+                'opcion_id': request_data.opcion_id
+            }).execute()
+            ticket_status[ticket_id] = {"status": "SUCCESS", "message": "¡Tu voto ha sido registrado exitosamente!"}
+        except Exception as e:
+            print(f"Error DB (inserción): {e}")
+            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error interno al registrar el voto en los servidores centrales."}
+
+
 @app.on_event("startup")
 async def startup_event():
-    pass
+    asyncio.create_task(process_vote_queue())
 
 @app.on_event("shutdown")
 async def shutdown_event():
     if validator.client and validator.client.is_connected():
         await validator.client.disconnect()
 
+@app.post("/api/vote/enqueue")
+async def enqueue_vote(request: VoteRequest):
+    ticket_id = str(uuid.uuid4())
+    ticket_status[ticket_id] = {"status": "IN_QUEUE", "message": "En cola"}
+    
+    async with queue_lock:
+        queue_list.append((ticket_id, request))
+        
+    return {"ticket_id": ticket_id}
+
+@app.get("/api/vote/status/{ticket_id}")
+async def get_vote_status(ticket_id: str):
+    if ticket_id not in ticket_status:
+        raise HTTPException(status_code=404, detail="Ticket no encontrado")
+        
+    status = ticket_status[ticket_id]["status"]
+    message = ticket_status[ticket_id].get("message", "")
+    
+    position = 0
+    if status == "IN_QUEUE":
+        async with queue_lock:
+            for i, (tid, req) in enumerate(queue_list):
+                if tid == ticket_id:
+                    position = i + 1
+                    break
+                    
+    return {"status": status, "position": position, "message": message}
+
+# El endpoint antiguo /api/vote lo quitamos o dejamos para retrocompatibilidad, pero lo ideal es usar enqueue.
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
-    if supabase is None:
-        return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
+    raise HTTPException(status_code=400, detail="Por favor, actualice la página. El sistema de votación ha sido actualizado con un sistema de cola.")
 
-    # 1. Verificar si ya votó
-    try:
-        response = supabase.table('votos').select('id').eq('dni', request.dni).execute()
-        if len(response.data) > 0:
-            raise HTTPException(status_code=400, detail="Este DNI ya ha emitido un voto.")
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error DB (verificación): {e}")
-        return JSONResponse(status_code=500, content={"detail": f"Error interno de base de datos: {str(e)}"})
-
-    # 2. Consultar a Telegram MTProto (Userbot)
-    try:
-        validation = await validator.consultar_dni(request.dni)
-    except Exception as e:
-        print(f"Error consultando a Telegram: {e}")
-        raise HTTPException(status_code=500, detail="El bot validador de RENIEC no respondió a tiempo.")
-
-    if not validation.get("success"):
-        raise HTTPException(status_code=400, detail=validation.get("error", "Error desconocido en Telegram"))
-
-    # 3. Registrar Voto
-    try:
-        supabase.table('votos').insert({
-            'dni': request.dni,
-            'opcion_id': request.opcion_id
-        }).execute()
-    except Exception as e:
-        print(f"Error DB (inserción): {e}")
-        return JSONResponse(status_code=500, content={"detail": f"Error interno de base de datos: {str(e)}"})
-
-    return {"success": True, "message": "¡Tu voto ha sido registrado exitosamente!"}
 
 @app.get("/api/results")
 async def get_results():
