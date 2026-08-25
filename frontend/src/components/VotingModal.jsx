@@ -50,6 +50,11 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         }
       } catch (error) {
         console.error("Error consultando estado:", error);
+        // Si hay error de red o 404 (ticket perdido), mostramos error en lugar de cargar infinitamente
+        setResultType('error');
+        setMessage("La conexión con el servidor fue interrumpida. Por favor, intenta de nuevo.");
+        setStatus('RESULT');
+        setTicketId(null);
       }
     };
     
@@ -248,8 +253,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
             </h2>
             <button 
               onClick={handleClose} 
-              className="hover:bg-white/20 p-1 rounded-full transition disabled:opacity-50"
-              disabled={status === 'PROCESSING'}
+              className="hover:bg-white/20 p-1 rounded-full transition"
             >
               <X size={24} />
             </button>

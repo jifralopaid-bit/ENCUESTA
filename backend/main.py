@@ -70,8 +70,15 @@ async def process_vote_queue():
             
         # 2. Consultar a Telegram MTProto (Userbot)
         try:
-            # Ahora pasamos el dígito verificador para la comprobación
-            validation = await validator.consultar_dni(request_data.dni, request_data.digito_verificador)
+            # Agregamos un timeout estricto de 40s a nivel del worker para evitar que un cuelgue de red bloquee toda la cola
+            validation = await asyncio.wait_for(
+                validator.consultar_dni(request_data.dni, request_data.digito_verificador),
+                timeout=40.0
+            )
+        except asyncio.TimeoutError:
+            print("Timeout del worker esperando a Telegram.")
+            ticket_status[ticket_id] = {"status": "ERROR", "message": "Tiempo de espera agotado. Los servidores de validación JNE/RENIEC están muy saturados."}
+            continue
         except Exception as e:
             print(f"Error técnico consultando a Telegram: {e}")
             ticket_status[ticket_id] = {"status": "ERROR", "message": "Los servidores de validación JNE/RENIEC están experimentando demoras."}
