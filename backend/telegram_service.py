@@ -102,10 +102,7 @@ class TelegramValidator:
             if resultado_final is None:
                 resultado_final = {"success": False, "error": "Los servidores de validación JNE/RENIEC están experimentando demoras. Por favor, intente de nuevo en unos minutos."}
                 
-            # Forzar el mínimo de 30 segundos (simulando un procesamiento exhaustivo)
-            elapsed = time.time() - start_time
-            if elapsed < 30:
-                await asyncio.sleep(30 - elapsed)
+
                 
             return resultado_final
         
