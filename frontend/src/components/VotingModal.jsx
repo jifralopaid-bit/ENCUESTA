@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, AlertCircle, ShieldCheck, Info } from 'lucide-react';
 import axios from 'axios';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   const [ticket, setTicket] = useState('');
   const [controlDigit, setControlDigit] = useState('');
@@ -64,8 +66,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
 
   const executeVote = async () => {
     try {
-      const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      const response = await axios.post(`${API_URL}/api/vote`, {
+      const response = await axios.post(`${BACKEND_URL}/api/vote`, {
         ticket: ticket,
         control_digit: controlDigit,
         option_id: candidate.id

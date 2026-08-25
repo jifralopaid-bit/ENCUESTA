@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from telegram_service import TelegramValidator
 import os
-from supabase import create_client, Client
 from dotenv import load_dotenv
+from supabase_client import supabase
 
 load_dotenv()
 
@@ -12,21 +12,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://encuesta-wine.vercel.app", "*"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Supabase init
-supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
-
-if not supabase_url or not supabase_key:
-    print("ADVERTENCIA: Credenciales de Supabase no encontradas")
-    supabase = None
-else:
-    supabase: Client = create_client(supabase_url, supabase_key)
 
 validator = TelegramValidator()
 
@@ -50,7 +40,7 @@ async def shutdown_event():
 @app.post("/api/vote")
 async def vote(request: VoteRequest):
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Base de datos no configurada.")
+        raise HTTPException(status_code=500, detail="Error interno: Base de datos no configurada.")
 
     # 1. Verificar si ya votó
     response = supabase.table('votos').select('id').eq('dni', request.ticket).execute()
@@ -82,7 +72,7 @@ async def vote(request: VoteRequest):
 @app.get("/api/results")
 async def get_results():
     if supabase is None:
-        return []
+        raise HTTPException(status_code=500, detail="Error interno: Base de datos no configurada.")
         
     try:
         # Get all candidates

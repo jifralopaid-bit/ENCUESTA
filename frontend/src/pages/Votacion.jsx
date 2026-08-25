@@ -7,6 +7,8 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 const Votacion = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +32,8 @@ const Votacion = () => {
   useEffect(() => {
     fetchLiveResults();
     
-    const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
     const interval = setInterval(() => {
-      axios.get(`${API_URL}/api/results`)
+      axios.get(`${BACKEND_URL}/api/results`)
         .then(response => {
           if (Array.isArray(response.data)) {
             setLiveResults(response.data);
@@ -61,8 +62,7 @@ const Votacion = () => {
   const fetchLiveResults = async () => {
     setIsResultsLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      const response = await axios.get(`${API_URL}/api/results`);
+      const response = await axios.get(`${BACKEND_URL}/api/results`);
       if (Array.isArray(response.data)) {
         setLiveResults(response.data);
       }
