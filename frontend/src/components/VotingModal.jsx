@@ -64,7 +64,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
 
   if (!isOpen) return null;
 
-  const handleStartQueue = (e) => {
+  const handleStartQueue = async (e) => {
     e.preventDefault();
     if (ticket.length !== 8) {
       setResultType('error');
