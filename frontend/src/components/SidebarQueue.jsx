@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Loader2, CheckCircle, AlertCircle, X, ChevronRight, List } from 'lucide-react';
+import { ShieldCheck, Loader2, CheckCircle, AlertCircle, X, ChevronRight, List, Trash2, RefreshCw } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const SidebarQueue = () => {
   const [tickets, setTickets] = useState([]);
   const [isOpen, setIsOpen] = useState(true);
+  const [loadingActions, setLoadingActions] = useState({});
   
   useEffect(() => {
     let token = localStorage.getItem('userToken');
@@ -32,6 +33,30 @@ const SidebarQueue = () => {
   }, []);
 
   if (tickets.length === 0) return null;
+
+  const handleDelete = async (id) => {
+    setLoadingActions(prev => ({ ...prev, [id]: 'deleting' }));
+    try {
+      await axios.delete(`${BACKEND_URL}/api/cola/${id}`);
+      setTickets(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
+  const handleRetry = async (id) => {
+    setLoadingActions(prev => ({ ...prev, [id]: 'retrying' }));
+    try {
+      await axios.put(`${BACKEND_URL}/api/cola/${id}/retry`);
+      setTickets(prev => prev.map(t => t.id === id ? { ...t, estado: 'pendiente', mensaje: '' } : t));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [id]: null }));
+    }
+  };
 
   const getStatusConfig = (estado) => {
     switch (estado) {
@@ -117,9 +142,32 @@ const SidebarQueue = () => {
                       </p>
                     )}
                     
-                    {/* Timestamp */}
-                    <div className="text-[9px] text-right mt-1 opacity-70">
-                      {new Date(ticket.created_at).toLocaleTimeString()}
+                    {/* Timestamp y Acciones */}
+                    <div className="flex justify-between items-center mt-1 border-t border-black/5 pt-2">
+                      <div className="text-[9px] opacity-70">
+                        {new Date(ticket.created_at).toLocaleTimeString()}
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {ticket.estado === 'rechazado' && (
+                          <button 
+                            onClick={() => handleRetry(ticket.id)}
+                            disabled={loadingActions[ticket.id]}
+                            className="flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-[#C93339] transition disabled:opacity-50"
+                          >
+                            {loadingActions[ticket.id] === 'retrying' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                            Reintentar
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDelete(ticket.id)}
+                          disabled={loadingActions[ticket.id]}
+                          className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-red-600 transition disabled:opacity-50"
+                        >
+                          {loadingActions[ticket.id] === 'deleting' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          Borrar
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 );

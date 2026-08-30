@@ -155,6 +155,24 @@ async def get_queue_status(user_token: str):
         print(f"Error obteniendo cola: {e}")
         return []
 
+@app.delete("/api/cola/{item_id}")
+async def delete_queue_item(item_id: str):
+    try:
+        supabase.table('cola_votos').delete().eq('id', item_id).execute()
+        return JSONResponse(status_code=200, content={"message": "Item eliminado"})
+    except Exception as e:
+        print(f"Error borrando item {item_id}: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error al eliminar el registro."})
+
+@app.put("/api/cola/{item_id}/retry")
+async def retry_queue_item(item_id: str):
+    try:
+        supabase.table('cola_votos').update({"estado": "pendiente", "mensaje": ""}).eq('id', item_id).execute()
+        return JSONResponse(status_code=200, content={"message": "Item reencolado"})
+    except Exception as e:
+        print(f"Error reintentando item {item_id}: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error al reintentar."})
+
 
 
 @app.get("/api/results")
