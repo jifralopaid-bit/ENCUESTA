@@ -14,6 +14,8 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   const [resultType, setResultType] = useState(null); // 'success' o 'error'
   const [message, setMessage] = useState('');
 
+  // Prevenir renderizado con estado nulo y si está cerrado
+  if (!isOpen || !candidate) return null;
 
 
   const handleStartQueue = async (e) => {

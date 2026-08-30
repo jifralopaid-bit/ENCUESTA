@@ -8,11 +8,13 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import SidebarQueue from './components/SidebarQueue';
+import WelcomeModal from './components/WelcomeModal';
 
 function App() {
   return (
     <Router>
       <SidebarQueue />
+      <WelcomeModal />
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
