@@ -9,89 +9,12 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   const [ticket, setTicket] = useState('');
   const [controlDigit, setControlDigit] = useState('');
   
-  // Estados de la máquina: IDLE, IN_QUEUE, PROCESSING, RESULT
+  // Estados de la máquina: IDLE, PROCESSING, RESULT
   const [status, setStatus] = useState('IDLE'); 
   const [resultType, setResultType] = useState(null); // 'success' o 'error'
   const [message, setMessage] = useState('');
-  
-  const [queuePosition, setQueuePosition] = useState(0);
 
-  const [ticketId, setTicketId] = useState(null);
-  const [totalQueueLength, setTotalQueueLength] = useState(0);
 
-  // Efecto para la simulación de la cola
-  useEffect(() => {
-    let queueTimer;
-    
-    const checkStatus = async () => {
-      if (!ticketId) return;
-      
-      try {
-        const response = await axios.get(`${BACKEND_URL}/api/vote/status/${ticketId}`);
-        const data = response.data;
-        
-        if (data.status === 'IN_QUEUE') {
-          setQueuePosition(data.position);
-        } else if (data.status === 'PROCESSING') {
-          setStatus('PROCESSING');
-        } else if (data.status === 'SUCCESS') {
-          setResultType('success');
-          setMessage(data.message);
-          setStatus('RESULT');
-          setTicketId(null);
-          setTimeout(() => {
-            onVoteSuccess();
-            handleClose();
-          }, 2500);
-        } else if (data.status === 'ERROR') {
-          setResultType('error');
-          setMessage(data.message);
-          setStatus('RESULT');
-          setTicketId(null);
-        }
-      } catch (error) {
-        console.error("Error consultando estado:", error);
-        // Si hay error de red o 404 (ticket perdido), mostramos error en lugar de cargar infinitamente
-        setResultType('error');
-        setMessage("La conexión con el servidor fue interrumpida. Por favor, intenta de nuevo.");
-        setStatus('RESULT');
-        setTicketId(null);
-      }
-    };
-    
-    if (status === 'IN_QUEUE' || status === 'PROCESSING') {
-      queueTimer = setInterval(checkStatus, 2000); // Poll cada 2 segundos
-    }
-    
-    return () => {
-      if (queueTimer) clearInterval(queueTimer);
-    };
-  }, [status, ticketId]);
-
-  // Efecto para obtener el tamaño de la cola antes de votar
-  useEffect(() => {
-    let lengthTimer;
-
-    const fetchQueueLength = async () => {
-      try {
-        const response = await axios.get(`${BACKEND_URL}/api/vote/queue-length`);
-        setTotalQueueLength(response.data.length);
-      } catch (error) {
-        console.error("Error fetching queue length:", error);
-      }
-    };
-
-    if (isOpen && status === 'IDLE') {
-      fetchQueueLength();
-      lengthTimer = setInterval(fetchQueueLength, 4000); // Poll cada 4s
-    }
-
-    return () => {
-      if (lengthTimer) clearInterval(lengthTimer);
-    };
-  }, [isOpen, status]);
-
-  if (!isOpen) return null;
 
   const handleStartQueue = async (e) => {
     e.preventDefault();
@@ -110,16 +33,27 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
     
     // Entrar a la cola real llamando al backend
     try {
+      const userToken = localStorage.getItem('userToken') || crypto.randomUUID();
+      localStorage.setItem('userToken', userToken);
+
       const payload = {
         dni: String(ticket),
         digito_verificador: String(controlDigit),
-        opcion_id: candidate.id
+        opcion_id: candidate.id,
+        user_token: userToken
       };
-      setStatus('PROCESSING'); // Mostrar un loader rápido mientras obtiene el ticket
-      const response = await axios.post(`${BACKEND_URL}/api/vote/enqueue`, payload);
       
-      setTicketId(response.data.ticket_id);
-      setStatus('IN_QUEUE');
+      setStatus('PROCESSING');
+      await axios.post(`${BACKEND_URL}/api/votar`, payload);
+      
+      setResultType('success');
+      setMessage('Ticket enviado a la fila de validación.');
+      setStatus('RESULT');
+      
+      // Cerrar inmediatamente, el sidebar manejará el estado
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
       
     } catch (error) {
       console.error("Error al encolar:", error);
@@ -130,16 +64,11 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
     }
   };
 
-  const executeVote = async () => {
-    // Ya no se usa executeVote directamente, lo maneja el polling del useEffect
-  };
-
   const handleClose = () => {
     setTicket('');
     setControlDigit('');
     setStatus('IDLE');
     setResultType(null);
-    setTicketId(null);
     onClose();
   };
 
@@ -170,7 +99,6 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
     }
 
     const isProcessing = status === 'PROCESSING';
-    const inQueue = status === 'IN_QUEUE';
 
     return (
       <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar">
@@ -187,11 +115,7 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
               Por favor, verifica detenidamente que tu DNI y Dígito Verificador sean correctos antes de enviar tu voto.
             </p>
             <p className="mt-1 font-semibold text-blue-900 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
-              {totalQueueLength === 0 
-                ? "No hay personas en la cola. ¡Tu validación será inmediata!" 
-                : `Hay ${totalQueueLength} persona${totalQueueLength > 1 ? 's' : ''} esperando en la cola actualmente.`
-              }
+              Tu solicitud será colocada en una fila y validada de forma segura.
             </p>
           </div>
         </div>
@@ -199,9 +123,9 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         {isProcessing ? (
           <div className="py-8 flex flex-col items-center justify-center space-y-4">
             <Loader2 size={46} className="text-emerald-600 animate-spin" />
-            <p className="font-semibold text-gray-800 text-lg text-center">Validando con JNE/RENIEC...</p>
+            <p className="font-semibold text-gray-800 text-lg text-center">Iniciando protocolo de validación...</p>
             <p className="text-sm text-gray-500 text-center px-4">
-              Por favor no cierres la ventana. La validación oficial puede tomar unos segundos.
+              Añadiendo tu solicitud a la fila segura...
             </p>
           </div>
         ) : (
@@ -246,19 +170,12 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
               />
             </div>
 
-            {inQueue ? (
-              <div className="w-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold py-4 rounded-xl flex flex-col items-center justify-center animate-pulse">
-                <span>Estás en la cola.</span>
-                <span className="text-sm font-medium mt-1">Posición actual: {queuePosition}</span>
-              </div>
-            ) : (
-              <button 
-                type="submit" 
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 outline-none mt-2 min-h-[44px] text-lg"
-              >
-                Participar
-              </button>
-            )}
+            <button 
+              type="submit" 
+              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 outline-none mt-2 min-h-[44px] text-lg"
+            >
+              Entrar a la Fila de Votación
+            </button>
 
             <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 mt-2">
               <ShieldCheck size={14} />

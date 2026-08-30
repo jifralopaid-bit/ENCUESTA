@@ -7,10 +7,12 @@ import Transparencia from './pages/Transparencia';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import SidebarQueue from './components/SidebarQueue';
 
 function App() {
   return (
     <Router>
+      <SidebarQueue />
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />

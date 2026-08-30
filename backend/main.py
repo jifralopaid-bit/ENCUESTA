@@ -27,6 +27,22 @@ class VoteRequest(BaseModel):
     dni: str
     digito_verificador: str
     opcion_id: str
+    user_token: str
+
+def check_modulo_11(dni: str, dv: str) -> bool:
+    if len(dni) != 8 or not dni.isdigit():
+        return False
+    multipliers = [3, 2, 7, 6, 5, 4, 3, 2]
+    total = sum(int(d) * m for d, m in zip(dni, multipliers))
+    mod = total % 11
+    lookup = "67890112345"
+    try:
+        expected = lookup[mod]
+        if dv.upper() == 'K' and expected == '1':
+            return True
+        return dv == expected
+    except:
+        return False
 
 class SendCodeRequest(BaseModel):
     phone_number: str
@@ -36,73 +52,75 @@ class VerifyCodeRequest(BaseModel):
     phone_code_hash: str
     phone_code: str
 
-temp_clients = {}
-
-queue_list = []
-queue_lock = asyncio.Lock()
-ticket_status = {}
-
 async def process_vote_queue():
     while True:
-        if not queue_list:
-            await asyncio.sleep(1)
-            continue
-            
-        async with queue_lock:
-            ticket_id, request_data = queue_list.pop(0)
-            
-        ticket_status[ticket_id]["status"] = "PROCESSING"
-        
-        # 1. Verificar si ya votó
-        if supabase is None:
-            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error de conexión con la base de datos."}
-            continue
-            
         try:
-            response = supabase.table('votos').select('id').eq('dni', request_data.dni).execute()
-            if len(response.data) > 0:
-                ticket_status[ticket_id] = {"status": "ERROR", "message": "Este DNI ya ha emitido un voto."}
+            if supabase is None:
+                await asyncio.sleep(5)
                 continue
-        except Exception as e:
-            print(f"Error DB (verificación): {e}")
-            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error interno al verificar el DNI."}
-            continue
+                
+            # Buscar 1 ticket pendiente
+            response = supabase.table('cola_votos').select('*').eq('estado', 'pendiente').order('created_at').limit(1).execute()
             
-        # 2. Consultar a Telegram MTProto (Userbot)
-        try:
-            # Agregamos un timeout estricto de 40s a nivel del worker para evitar que un cuelgue de red bloquee toda la cola
-            validation = await asyncio.wait_for(
-                validator.consultar_dni(request_data.dni, request_data.digito_verificador),
-                timeout=40.0
-            )
-        except asyncio.TimeoutError:
-            print("Timeout del worker esperando a Telegram.")
-            ticket_status[ticket_id] = {"status": "ERROR", "message": "Tiempo de espera agotado. Los servidores de validación JNE/RENIEC están muy saturados."}
-            continue
-        except Exception as e:
-            print(f"Error técnico consultando a Telegram: {e}")
-            ticket_status[ticket_id] = {"status": "ERROR", "message": "Los servidores de validación JNE/RENIEC están experimentando demoras."}
-            continue
+            if not response.data:
+                await asyncio.sleep(2)
+                continue
+                
+            ticket = response.data[0]
+            ticket_id = ticket['id']
+            dni = ticket['dni']
+            dv = ticket.get('dv', ticket.get('digito_verificador', '')) # Support both column names just in case
             
-        if not validation.get("success"):
-            ticket_status[ticket_id] = {"status": "ERROR", "message": validation.get("error", "Error en la validación.")}
-            continue
+            # Cambiar a procesando
+            supabase.table('cola_votos').update({"estado": "procesando", "mensaje": "Validando con JNE/RENIEC..."}).eq('id', ticket_id).execute()
             
-        # 3. Registrar Voto
-        try:
-            supabase.table('votos').insert({
-                'dni': request_data.dni,
-                'opcion_id': request_data.opcion_id
-            }).execute()
-            ticket_status[ticket_id] = {"status": "SUCCESS", "message": "¡Tu voto ha sido registrado exitosamente!"}
-        except Exception as e:
-            print(f"Error DB (inserción): {e}")
-            ticket_status[ticket_id] = {"status": "ERROR", "message": "Error interno al registrar el voto en los servidores centrales."}
+            # 1. Verificar si ya votó
+            voto_resp = supabase.table('votos').select('id').eq('dni', dni).execute()
+            if len(voto_resp.data) > 0:
+                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Este DNI ya ha emitido un voto."}).eq('id', ticket_id).execute()
+                await asyncio.sleep(5)
+                continue
+                
+            # 2. Consultar a Telegram MTProto (Userbot)
+            try:
+                # Timeout estricto de 30s
+                validation = await asyncio.wait_for(
+                    validator.consultar_dni(dni, dv),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                print("Timeout del worker esperando a Telegram.")
+                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Tiempo de espera agotado. Los servidores de validación están muy saturados."}).eq('id', ticket_id).execute()
+                await asyncio.sleep(5)
+                continue
+            except Exception as e:
+                print(f"Error técnico consultando a Telegram: {e}")
+                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Los servidores de validación están experimentando demoras."}).eq('id', ticket_id).execute()
+                await asyncio.sleep(5)
+                continue
+                
+            if not validation.get("success"):
+                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": validation.get("error", "Error en la validación.")}).eq('id', ticket_id).execute()
+                await asyncio.sleep(5)
+                continue
+                
+            # 3. Registrar Voto
+            try:
+                supabase.table('votos').insert({
+                    'dni': dni,
+                    'opcion_id': ticket['candidato_id']
+                }).execute()
+                supabase.table('cola_votos').update({"estado": "aprobado", "mensaje": "¡Tu voto ha sido registrado exitosamente!"}).eq('id', ticket_id).execute()
+            except Exception as e:
+                print(f"Error DB (inserción): {e}")
+                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Error interno al registrar el voto en los servidores centrales."}).eq('id', ticket_id).execute()
 
-        # Cooldown anti-spam de Telegram
-        # Evita que el bot de RENIEC nos ignore por mandar comandos demasiado rápido (SPAM protection)
-        await asyncio.sleep(13)
-
+            # Cooldown anti-spam (5 segundos requeridos por la arquitectura)
+            await asyncio.sleep(5)
+            
+        except Exception as e:
+            print(f"Error general en el worker: {e}")
+            await asyncio.sleep(5)
 
 @app.on_event("startup")
 async def startup_event():
@@ -113,44 +131,36 @@ async def shutdown_event():
     if validator.client and validator.client.is_connected():
         await validator.client.disconnect()
 
-@app.post("/api/vote/enqueue")
+@app.post("/api/votar")
 async def enqueue_vote(request: VoteRequest):
-    ticket_id = str(uuid.uuid4())
-    ticket_status[ticket_id] = {"status": "IN_QUEUE", "message": "En cola"}
-    
-    async with queue_lock:
-        queue_list.append((ticket_id, request))
+    # Validación matemática rigurosa Modulo 11
+    if not check_modulo_11(request.dni, request.digito_verificador):
+        raise HTTPException(status_code=400, detail="El DNI o el dígito verificador son inválidos matemáticamente. Posible intento de spam.")
         
-    return {"ticket_id": ticket_id}
-
-@app.get("/api/vote/status/{ticket_id}")
-async def get_vote_status(ticket_id: str):
-    if ticket_id not in ticket_status:
-        raise HTTPException(status_code=404, detail="Ticket no encontrado")
+    try:
+        response = supabase.table('cola_votos').insert({
+            'dni': request.dni,
+            'dv': request.digito_verificador,
+            'candidato_id': request.opcion_id,
+            'user_token': request.user_token,
+            'estado': 'pendiente',
+            'mensaje': 'En cola de validación'
+        }).execute()
         
-    status = ticket_status[ticket_id]["status"]
-    message = ticket_status[ticket_id].get("message", "")
-    
-    position = 0
-    if status == "IN_QUEUE":
-        async with queue_lock:
-            for i, (tid, req) in enumerate(queue_list):
-                if tid == ticket_id:
-                    position = i + 1
-                    break
-                    
-    return {"status": status, "position": position, "message": message}
+        return JSONResponse(status_code=202, content={"message": "Ticket encolado exitosamente", "ticket_id": response.data[0]['id']})
+    except Exception as e:
+        print(f"Error encolando: {e}")
+        raise HTTPException(status_code=500, detail="Error al ingresar a la cola.")
 
-@app.get("/api/vote/queue-length")
-async def get_queue_length():
-    async with queue_lock:
-        length = len(queue_list)
-    return {"length": length}
+@app.get("/api/cola/{user_token}")
+async def get_queue_status(user_token: str):
+    try:
+        response = supabase.table('cola_votos').select('*').eq('user_token', user_token).order('created_at', desc=True).execute()
+        return response.data
+    except Exception as e:
+        print(f"Error obteniendo cola: {e}")
+        return []
 
-# El endpoint antiguo /api/vote lo quitamos o dejamos para retrocompatibilidad, pero lo ideal es usar enqueue.
-@app.post("/api/vote")
-async def vote(request: VoteRequest):
-    raise HTTPException(status_code=400, detail="Por favor, actualice la página. El sistema de votación ha sido actualizado con un sistema de cola.")
 
 
 @app.get("/api/results")
