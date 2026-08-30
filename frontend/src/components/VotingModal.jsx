@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, AlertCircle, ShieldCheck, Info } from 'lucide-react';
 import axios from 'axios';
@@ -8,6 +8,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
   const [ticket, setTicket] = useState('');
   const [controlDigit, setControlDigit] = useState('');
+  const dvRef = useRef(null);
   
   // Estados de la máquina: IDLE, PROCESSING, RESULT
   const [status, setStatus] = useState('IDLE'); 
@@ -110,73 +111,72 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         </div>
 
         {/* Banner de Advertencia */}
-        <div className="bg-blue-50 border border-blue-100 text-blue-800 px-4 py-3 rounded-lg text-sm flex gap-3 mb-4 sm:mb-6">
-          <Info className="flex-shrink-0 text-blue-500 mt-0.5" size={18} />
+        <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-sm text-xs flex gap-3 mb-4">
+          <Info className="flex-shrink-0 text-gray-500 mt-0.5" size={16} />
           <div>
-            <p>
-              Por favor, verifica detenidamente que tu DNI y Dígito Verificador sean correctos antes de enviar tu voto.
-            </p>
-            <p className="mt-1 font-semibold text-blue-900 flex items-center gap-1.5">
-              Tu solicitud será colocada en una fila y validada de forma segura.
+            <p className="leading-relaxed">
+              Verifique detenidamente su DNI y Dígito Verificador antes de enviar.
+              Su solicitud será colocada en una fila y validada de forma segura con el padrón oficial.
             </p>
           </div>
         </div>
 
         {isProcessing ? (
           <div className="py-8 flex flex-col items-center justify-center space-y-4">
-            <Loader2 size={46} className="text-emerald-600 animate-spin" />
+            <Loader2 size={46} className="text-[#C93339] animate-spin" />
             <p className="font-semibold text-gray-800 text-lg text-center">Iniciando protocolo de validación...</p>
             <p className="text-sm text-gray-500 text-center px-4">
               Añadiendo tu solicitud a la fila segura...
             </p>
           </div>
         ) : (
-          <form onSubmit={handleStartQueue} className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                DNI
-              </label>
-              <input 
-                type="text" 
-                maxLength={8}
-                required
-                disabled={isProcessing}
-                value={ticket}
-                onChange={(e) => setTicket(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-shadow text-lg tracking-wider font-medium disabled:bg-gray-100 disabled:text-gray-400 min-h-[44px]"
-                placeholder="Ej: 12345678"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex justify-between items-center">
-                <span>DÍGITO VERIFICADOR</span>
-              </label>
+          <form onSubmit={handleStartQueue} className="space-y-4">
+            <div className="flex gap-3">
+              <div className="w-[75%]">
+                <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase">
+                  DNI
+                </label>
+                <input 
+                  type="text" 
+                  maxLength={8}
+                  required
+                  disabled={isProcessing}
+                  value={ticket}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setTicket(val);
+                    if (val.length === 8 && dvRef.current) {
+                      dvRef.current.focus();
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none transition-shadow text-lg tracking-wider font-medium disabled:bg-gray-100 disabled:text-gray-400 h-[48px]"
+                  placeholder="Ej: 12345678"
+                />
+              </div>
               
-              {/* Imagen de ayuda visual */}
-              <img 
-                src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787692415/LCCE4P37QNGG5IRLNK6BKJ2HYY_1.png" 
-                alt="Validación JNE" 
-                className="w-full max-w-[200px] sm:max-w-xs mx-auto rounded-md shadow-sm mb-3 border border-gray-200"
-              />
-
-              <input 
-                type="text" 
-                maxLength={1}
-                required
-                disabled={isProcessing}
-                value={controlDigit}
-                onChange={(e) => setControlDigit(e.target.value.toUpperCase())}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none uppercase transition-shadow text-lg tracking-wider font-medium disabled:bg-gray-100 disabled:text-gray-400 min-h-[44px]"
-                placeholder="Ej: K o 9"
-              />
+              <div className="w-[25%]">
+                <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase">
+                  DV
+                </label>
+                <input 
+                  type="text" 
+                  maxLength={1}
+                  required
+                  disabled={isProcessing}
+                  value={controlDigit}
+                  ref={dvRef}
+                  onChange={(e) => setControlDigit(e.target.value.toUpperCase())}
+                  className="w-full px-2 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none uppercase transition-shadow text-lg tracking-wider font-medium text-center disabled:bg-gray-100 disabled:text-gray-400 h-[48px]"
+                  placeholder="K"
+                />
+              </div>
             </div>
 
             <button 
               type="submit" 
-              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 outline-none mt-2 min-h-[44px] text-lg"
+              className="w-full bg-[#C93339] hover:bg-red-800 text-white font-bold py-3 rounded-sm transition-all shadow-sm focus:ring-2 focus:ring-[#C93339] focus:ring-offset-2 outline-none mt-2 text-base h-[48px]"
             >
-              Entrar a la Fila de Votación
+              Validar Identidad y Emitir Voto
             </button>
 
             <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 mt-2">
@@ -196,11 +196,11 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative flex flex-col max-h-[90vh] md:max-h-[95vh] overflow-hidden"
+          className="bg-white rounded-sm w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
         >
-          <div className="bg-emerald-700 p-3 sm:p-4 flex justify-between items-center text-white flex-shrink-0 z-10">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <ShieldCheck size={22} />
+          <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10">
+            <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
+              <ShieldCheck size={20} />
               Validación de Identidad
             </h2>
             <button 
