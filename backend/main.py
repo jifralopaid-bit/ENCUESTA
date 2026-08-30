@@ -149,8 +149,9 @@ async def enqueue_vote(request: VoteRequest):
         
         return JSONResponse(status_code=202, content={"message": "Ticket encolado exitosamente", "ticket_id": response.data[0]['id']})
     except Exception as e:
-        print(f"Error encolando: {e}")
-        raise HTTPException(status_code=500, detail="Error al ingresar a la cola.")
+        error_msg = str(e)
+        print(f"Error encolando: {error_msg}")
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {error_msg}. Verifica si creaste la tabla 'cola_votos'.")
 
 @app.get("/api/cola/{user_token}")
 async def get_queue_status(user_token: str):
