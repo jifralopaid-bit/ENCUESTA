@@ -92,8 +92,8 @@ class TelegramValidator:
                                     pass
                             
                             # Caso 2: El bot responde que no existe
-                            elif "no encontro" in message.text.lower() or "no encontr" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
-                                resultado_final = {"success": False, "error": "El DNI ingresado no se encuentra en la base de datos o formato incorrecto."}
+                            elif "no se encontro informacion" in message.text.lower() or "[ ✖ ]" in message.text or "no encontr" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
+                                resultado_final = {"success": False, "error": "No se encontró información para los datos ingresados."}
                         
                         if resultado_final is not None:
                             break
