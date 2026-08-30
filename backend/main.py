@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from supabase_client import supabase
 import uuid
 import asyncio
+import re
 
 load_dotenv()
 
@@ -29,20 +30,7 @@ class VoteRequest(BaseModel):
     opcion_id: str
     user_token: str
 
-def check_modulo_11(dni: str, dv: str) -> bool:
-    if len(dni) != 8 or not dni.isdigit():
-        return False
-    multipliers = [3, 2, 7, 6, 5, 4, 3, 2]
-    total = sum(int(d) * m for d, m in zip(dni, multipliers))
-    mod = total % 11
-    lookup = "67890112345"
-    try:
-        expected = lookup[mod]
-        if dv.upper() == 'K' and expected == '1':
-            return True
-        return dv == expected
-    except:
-        return False
+
 
 class SendCodeRequest(BaseModel):
     phone_number: str
@@ -90,12 +78,18 @@ async def process_vote_queue():
                 )
             except asyncio.TimeoutError:
                 print("Timeout del worker esperando a Telegram.")
-                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Tiempo de espera agotado. Los servidores de validación están muy saturados."}).eq('id', ticket_id).execute()
+                try:
+                    supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Tiempo de espera agotado. Los servidores de validación están muy saturados."}).eq('id', ticket_id).execute()
+                except Exception:
+                    pass
                 await asyncio.sleep(5)
                 continue
             except Exception as e:
                 print(f"Error técnico consultando a Telegram: {e}")
-                supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": "Los servidores de validación están experimentando demoras."}).eq('id', ticket_id).execute()
+                try:
+                    supabase.table('cola_votos').update({"estado": "rechazado", "mensaje": f"Error de validación: {str(e)}"}).eq('id', ticket_id).execute()
+                except Exception:
+                    pass
                 await asyncio.sleep(5)
                 continue
                 
@@ -133,11 +127,11 @@ async def shutdown_event():
 
 @app.post("/api/votar")
 async def enqueue_vote(request: VoteRequest):
-    # Validación matemática rigurosa Modulo 11
-    if not check_modulo_11(request.dni, request.digito_verificador):
-        raise HTTPException(status_code=400, detail="El DNI o el dígito verificador son inválidos matemáticamente. Posible intento de spam.")
-        
     try:
+        # Validación de formato robusta usando Regex
+        if not re.match(r'^\d{8}$', request.dni) or not re.match(r'^[a-zA-Z0-9]$', request.digito_verificador):
+            return JSONResponse(status_code=400, content={"detail": "Formato de DNI incorrecto."})
+            
         response = supabase.table('cola_votos').insert({
             'dni': request.dni,
             'dv': request.digito_verificador,
@@ -149,9 +143,8 @@ async def enqueue_vote(request: VoteRequest):
         
         return JSONResponse(status_code=202, content={"message": "Ticket encolado exitosamente", "ticket_id": response.data[0]['id']})
     except Exception as e:
-        error_msg = str(e)
-        print(f"Error encolando: {error_msg}")
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {error_msg}. Verifica si creaste la tabla 'cola_votos'.")
+        print(f"Error DB Cola: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error al procesar tu turno. Intenta nuevamente."})
 
 @app.get("/api/cola/{user_token}")
 async def get_queue_status(user_token: str):
