@@ -3,7 +3,7 @@ import CandidateCard from '../components/CandidateCard';
 import VotingModal from '../components/VotingModal';
 import CandidateModal from '../components/CandidateModal';
 import LiveResults from '../components/LiveResults';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, ShieldCheck, LockKeyhole, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 
@@ -120,20 +120,32 @@ const Votacion = () => {
     <div className="py-12 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Encabezado */}
-        <div className="text-center mb-16 max-w-3xl mx-auto">
-          <div className="flex items-center justify-center gap-2 text-emerald-600 mb-4">
-            <Sparkles size={24} />
-            <span className="font-semibold uppercase tracking-wider text-sm">Proceso Electoral en Curso</span>
-            <Sparkles size={24} />
+        {/* Encabezado Estratégico */}
+        <div className="text-center mb-16 max-w-4xl mx-auto relative z-10">
+          <div className="inline-flex items-center justify-center gap-2 bg-emerald-50 text-emerald-800 px-5 py-2 rounded-full mb-6 shadow-sm border border-emerald-200/50 backdrop-blur-sm">
+            <ShieldCheck size={18} className="text-emerald-600" />
+            <span className="font-black uppercase tracking-wider text-xs md:text-sm">Proceso Electoral 100% Seguro y Oficial</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
-            Elige a tu <span className="text-emerald-700">Representante</span>
+          
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 mb-6 tracking-tight leading-tight">
+            Elige a tu <span className="text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500">Representante</span>
           </h1>
-          <p className="text-lg text-gray-600 leading-relaxed">
-            Revisa detenidamente las propuestas de los líderes de nuestro distrito. 
-            Utiliza tu DNI y dígito verificador para emitir un voto único y seguro.
+          
+          <p className="text-xl md:text-2xl text-gray-600 leading-relaxed max-w-3xl mx-auto mb-8 font-medium">
+            Tu voz define el futuro de La Peca. Participa emitiendo un voto único, rápido y totalmente <strong className="text-gray-800">secreto</strong>.
           </p>
+
+          {/* Badges de Confianza Rápidos */}
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 text-sm font-semibold text-gray-600">
+             <div className="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-xl shadow-sm border border-gray-100 backdrop-blur-sm">
+               <LockKeyhole size={18} className="text-emerald-500" /> 
+               <span>Anonimato Garantizado</span>
+             </div>
+             <div className="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-xl shadow-sm border border-gray-100 backdrop-blur-sm">
+               <UserCheck size={18} className="text-emerald-500" /> 
+               <span>Validado con RENIEC</span>
+             </div>
+          </div>
         </div>
 
         {/* Grid de Candidatos (1 en móvil, hasta 5 en Desktop) */}

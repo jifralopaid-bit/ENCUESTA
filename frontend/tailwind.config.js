@@ -15,6 +15,11 @@ export default {
           earth: '#8d6e63',
           sand: '#efebe9'
         }
+      },
+      keyframes: {
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
+        }
       }
     },
   },
