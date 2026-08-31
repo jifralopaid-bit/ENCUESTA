@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2, XCircle, Loader2, RefreshCw, CheckCircle, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TelegramConfig from '../components/TelegramConfig';
+import RevocacionesPanel from './RevocacionesPanel';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -17,7 +18,6 @@ const AdminDashboard = () => {
 
   // Tab State
   const [activeTab, setActiveTab] = useState('candidatos');
-  const [revocaciones, setRevocaciones] = useState([]);
 
   // Estado del Candidato
   const [candidato, setCandidato] = useState(getInitialCandidatoState());
@@ -42,30 +42,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchCandidatosList();
-    fetchRevocaciones();
   }, []);
-
-  const fetchRevocaciones = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/revocaciones`);
-      const data = await response.json();
-      setRevocaciones(data);
-    } catch (e) {
-      console.error("Error fetching revocaciones", e);
-    }
-  };
-
-  const handleAprobarRevocacion = async (id) => {
-    if (!window.confirm('¿Aprobar esta revocación? Se eliminará el voto anterior asociado a este DNI.')) return;
-    try {
-      await fetch(`${BACKEND_URL}/api/admin/revocaciones/${id}/aprobar`, { method: 'POST' });
-      setMessage('Revocación aprobada exitosamente.');
-      fetchRevocaciones();
-    } catch (e) {
-      console.error(e);
-      setMessage('Error aprobando revocación');
-    }
-  };
 
   const fetchCandidatosList = async () => {
     try {
@@ -309,9 +286,6 @@ const AdminDashboard = () => {
             className={`py-3 px-4 font-semibold text-sm ${activeTab === 'revocaciones' ? 'border-b-2 border-emerald-600 text-emerald-800' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Solicitudes de Revocación
-            {revocaciones.length > 0 && (
-              <span className="ml-2 bg-red-100 text-red-600 py-0.5 px-2 rounded-full text-xs">{revocaciones.length}</span>
-            )}
           </button>
         </div>
 
@@ -578,60 +552,7 @@ const AdminDashboard = () => {
         </div>
         </>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6 md:p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Solicitudes de Revocación Pendientes</h2>
-              
-              {message && (
-                <div className="mb-4 p-4 rounded-lg bg-emerald-50 text-emerald-700 font-medium text-sm">
-                  {message}
-                </div>
-              )}
-
-              {revocaciones.length === 0 ? (
-                <p className="text-gray-500 italic text-sm">No hay solicitudes pendientes.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-gray-600">
-                    <thead className="bg-gray-50 text-gray-700">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">DNI</th>
-                        <th className="px-4 py-3 font-semibold">Teléfono</th>
-                        <th className="px-4 py-3 font-semibold">Evidencia</th>
-                        <th className="px-4 py-3 font-semibold text-right">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {revocaciones.map(r => (
-                        <tr key={r.id} className="hover:bg-gray-50 transition">
-                          <td className="px-4 py-3 font-medium text-gray-900">{r.dni}</td>
-                          <td className="px-4 py-3">{r.telefono}</td>
-                          <td className="px-4 py-3">
-                            <a 
-                              href={r.foto_url} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium"
-                            >
-                              Ver Foto <ExternalLink size={14} />
-                            </a>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => handleAprobarRevocacion(r.id)}
-                              className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white py-1.5 px-3 rounded text-xs font-semibold transition"
-                            >
-                              <CheckCircle size={14} /> Devolver Opción de Voto
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <RevocacionesPanel />
         )}
       </main>
     </div>

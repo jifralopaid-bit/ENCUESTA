@@ -1,0 +1,141 @@
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+const RevocacionesPanel = () => {
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    fetchRevocaciones();
+  }, []);
+
+  const fetchRevocaciones = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/revocaciones`);
+      if (!response.ok) throw new Error('Error en el servidor');
+      const data = await response.json();
+      setSolicitudes(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Error fetching revocaciones", e);
+      setError('Error al cargar las solicitudes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAprobarRevocacion = async (id) => {
+    if (!window.confirm('¿Estás seguro de aprobar esta solicitud? Se eliminará el voto anterior asociado a este DNI y el usuario podrá votar de nuevo.')) return;
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/revocaciones/${id}/aprobar`, { method: 'POST' });
+      if (!response.ok) throw new Error('Error al aprobar');
+      
+      setMessage('Revocación aprobada exitosamente.');
+      setSolicitudes(prev => prev.filter(s => s.id !== id)); // Remove from local state
+      
+      setTimeout(() => setMessage(''), 3000);
+    } catch (e) {
+      console.error(e);
+      setMessage('Error aprobando la revocación. Intenta nuevamente.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl shadow-sm border border-gray-200">
+        <Loader2 className="animate-spin text-emerald-600 mb-4" size={32} />
+        <p className="text-gray-500 font-medium">Cargando solicitudes pendientes...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-red-100">
+        <p className="text-red-500 text-lg font-medium">{error}</p>
+        <button onClick={fetchRevocaciones} className="mt-4 bg-red-50 text-red-600 px-4 py-2 rounded font-semibold hover:bg-red-100 transition">
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-6 md:p-8">
+        <div className="flex justify-between items-center mb-4 border-b pb-2">
+          <h2 className="text-xl font-bold text-gray-900">Solicitudes de Revocación Pendientes</h2>
+          <span className="bg-red-100 text-red-600 font-bold py-1 px-3 rounded-full text-xs">
+            {solicitudes.length} en cola
+          </span>
+        </div>
+        
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg font-medium text-sm ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            {message}
+          </div>
+        )}
+
+        {solicitudes.length === 0 ? (
+          <p className="text-gray-500 italic text-sm text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+            No hay solicitudes pendientes por el momento.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">DNI</th>
+                  <th className="px-4 py-3 font-semibold">Teléfono</th>
+                  <th className="px-4 py-3 font-semibold">Fecha (UTC)</th>
+                  <th className="px-4 py-3 font-semibold text-center">Evidencia</th>
+                  <th className="px-4 py-3 font-semibold text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {solicitudes.map(r => {
+                  // Ensure we use the masked route through Vercel rewrites
+                  const urlPart = r.foto_url.includes('/') ? r.foto_url.split('/').pop() : r.foto_url;
+                  const imageSrc = `/imagen/${urlPart}`;
+                  
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 font-bold text-gray-900">{r.dni}</td>
+                      <td className="px-4 py-3">{r.telefono}</td>
+                      <td className="px-4 py-3 text-xs">{new Date(r.created_at).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">
+                        <a 
+                          href={imageSrc} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium bg-emerald-50 px-2 py-1 rounded transition"
+                        >
+                          Ver Foto <ExternalLink size={14} />
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleAprobarRevocacion(r.id)}
+                          className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-xs font-bold transition shadow-sm hover:shadow-md"
+                        >
+                          <CheckCircle size={16} /> Aprobar y Devolver Voto
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default RevocacionesPanel;
