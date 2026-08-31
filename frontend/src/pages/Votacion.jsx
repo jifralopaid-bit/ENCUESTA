@@ -21,12 +21,28 @@ const Votacion = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isVotingModalOpen, setIsVotingModalOpen] = useState(false);
+  const [isRetryState, setIsRetryState] = useState(false);
+  const [prefilledDni, setPrefilledDni] = useState('');
   
   const [refreshResults, setRefreshResults] = useState(0);
 
   useEffect(() => {
     fetchCandidates();
-  }, []);
+
+    const handleOpenModal = (e) => {
+      // Find candidate by ID to pass full object
+      const cand = candidates.find(c => c.id === e.detail.candidateId);
+      if (cand) {
+        setSelectedCandidate(cand);
+        setIsRetryState(e.detail.isRetry || false);
+        setPrefilledDni(e.detail.dni || '');
+        setIsVotingModalOpen(true);
+      }
+    };
+    window.addEventListener('openVotingModal', handleOpenModal);
+    
+    return () => window.removeEventListener('openVotingModal', handleOpenModal);
+  }, [candidates]);
 
   // Efecto para cargar y hacer polling de los resultados
   useEffect(() => {
@@ -81,6 +97,8 @@ const Votacion = () => {
   const handleOpenVoting = (id, name) => {
     setIsInfoModalOpen(false);
     setSelectedCandidate({ id, name });
+    setIsRetryState(false);
+    setPrefilledDni('');
     setTimeout(() => {
       setIsVotingModalOpen(true);
     }, 100);
@@ -166,6 +184,8 @@ const Votacion = () => {
         isOpen={isVotingModalOpen}
         onClose={() => setIsVotingModalOpen(false)}
         candidate={selectedCandidate}
+        isRetry={isRetryState}
+        prefilledDni={prefilledDni}
         onVoteSuccess={handleVoteSuccess}
       />
     </div>

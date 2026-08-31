@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -29,6 +29,22 @@ class VoteRequest(BaseModel):
     digito_verificador: str
     opcion_id: str
     user_token: str
+    is_retry: bool = False
+
+def check_modulo_11(dni: str, dv: str) -> bool:
+    if len(dni) != 8 or not dni.isdigit():
+        return False
+    multipliers = [3, 2, 7, 6, 5, 4, 3, 2]
+    total = sum(int(d) * m for d, m in zip(dni, multipliers))
+    mod = total % 11
+    lookup = "67890112345"
+    try:
+        expected = lookup[mod]
+        if dv.upper() == 'K' and expected == '1':
+            return True
+        return dv == expected
+    except:
+        return False
 
 
 
@@ -132,6 +148,11 @@ async def enqueue_vote(request: VoteRequest):
         if not re.match(r'^\d{8}$', request.dni) or not re.match(r'^[a-zA-Z0-9]$', request.digito_verificador):
             return JSONResponse(status_code=400, content={"detail": "Formato de DNI incorrecto."})
             
+        if not request.is_retry:
+            if not check_modulo_11(request.dni, request.digito_verificador):
+                return JSONResponse(status_code=400, content={"detail": "El dígito verificador no coincide con la fórmula oficial de RENIEC. Verifica e intenta de nuevo."})
+
+            
         response = supabase.table('cola_votos').insert({
             'dni': request.dni,
             'dv': request.digito_verificador,
@@ -172,6 +193,66 @@ async def retry_queue_item(item_id: str):
     except Exception as e:
         print(f"Error reintentando item {item_id}: {e}")
         return JSONResponse(status_code=500, content={"detail": "Error al reintentar."})
+
+@app.post("/api/revocacion")
+async def solicitar_revocacion(dni: str = Form(...), telefono: str = Form(...), foto: UploadFile = File(...)):
+    if supabase is None:
+        return JSONResponse(status_code=500, content={"detail": "Error de base de datos."})
+        
+    try:
+        file_bytes = await foto.read()
+        file_name = f"{dni}_{uuid.uuid4().hex[:8]}" 
+        
+        # Subir a Supabase Storage
+        supabase.storage.from_("evidencias_dni").upload(
+            path=file_name,
+            file=file_bytes,
+            file_options={"content-type": foto.content_type}
+        )
+        
+        # Obtener URL publica
+        foto_url = supabase.storage.from_("evidencias_dni").get_public_url(file_name)
+        
+        # Insertar en tabla
+        supabase.table("solicitudes_revocacion").insert({
+            "dni": dni,
+            "telefono": telefono,
+            "foto_url": foto_url,
+            "estado": "pendiente"
+        }).execute()
+        
+        return JSONResponse(status_code=200, content={"message": "Solicitud enviada correctamente."})
+    except Exception as e:
+        print(f"Error en revocacion: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error al enviar solicitud."})
+
+@app.get("/api/admin/revocaciones")
+async def get_revocaciones():
+    try:
+        response = supabase.table("solicitudes_revocacion").select("*").eq("estado", "pendiente").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        print(f"Error fetching revocaciones: {e}")
+        return []
+
+@app.post("/api/admin/revocaciones/{id}/aprobar")
+async def aprobar_revocacion(id: str):
+    try:
+        req_res = supabase.table("solicitudes_revocacion").select("dni").eq("id", id).execute()
+        if not req_res.data:
+            return JSONResponse(status_code=404, content={"detail": "Solicitud no encontrada"})
+        
+        dni_afectado = req_res.data[0]["dni"]
+        
+        supabase.table("votos").delete().eq("dni", dni_afectado).execute()
+        supabase.table("cola_votos").delete().eq("dni", dni_afectado).execute()
+        
+        supabase.table("solicitudes_revocacion").update({"estado": "aprobado"}).eq("id", id).execute()
+        
+        return JSONResponse(status_code=200, content={"message": "Revocación aprobada exitosamente."})
+    except Exception as e:
+        print(f"Error aprobando revocacion: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error al aprobar revocación."})
 
 
 

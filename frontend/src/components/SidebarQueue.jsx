@@ -46,16 +46,23 @@ const SidebarQueue = () => {
     }
   };
 
-  const handleRetry = async (id) => {
-    setLoadingActions(prev => ({ ...prev, [id]: 'retrying' }));
-    try {
-      await axios.put(`${BACKEND_URL}/api/cola/${id}/retry`);
-      setTickets(prev => prev.map(t => t.id === id ? { ...t, estado: 'pendiente', mensaje: '' } : t));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingActions(prev => ({ ...prev, [id]: null }));
-    }
+  const handleRetry = (id, ticket) => {
+    // Disparar evento para abrir el modal de votación con isRetry
+    const event = new CustomEvent('openVotingModal', {
+      detail: {
+        candidateId: ticket.candidato_id,
+        dni: ticket.dni,
+        isRetry: true
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
+  const handleRevocation = (dni) => {
+    const event = new CustomEvent('openRevocationModal', {
+      detail: { dni }
+    });
+    window.dispatchEvent(event);
   };
 
   const getStatusConfig = (estado) => {
@@ -141,9 +148,18 @@ const SidebarQueue = () => {
                         {ticket.mensaje}
                       </p>
                     )}
+
+                    {ticket.estado === 'rechazado' && ticket.mensaje && ticket.mensaje.includes('ya ha emitido un voto') && (
+                      <button
+                        onClick={() => handleRevocation(ticket.dni)}
+                        className="mt-2 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 py-1.5 px-2 rounded w-full text-center transition"
+                      >
+                        ¿No fuiste tú? Solicitar revocación de voto
+                      </button>
+                    )}
                     
                     {/* Timestamp y Acciones */}
-                    <div className="flex justify-between items-center mt-1 border-t border-black/5 pt-2">
+                    <div className="flex justify-between items-center mt-2 border-t border-black/5 pt-2">
                       <div className="text-[9px] opacity-70">
                         {new Date(ticket.created_at).toLocaleTimeString()}
                       </div>
@@ -151,11 +167,11 @@ const SidebarQueue = () => {
                       <div className="flex items-center gap-3">
                         {ticket.estado === 'rechazado' && (
                           <button 
-                            onClick={() => handleRetry(ticket.id)}
+                            onClick={() => handleRetry(ticket.id, ticket)}
                             disabled={loadingActions[ticket.id]}
                             className="flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-[#C93339] transition disabled:opacity-50"
                           >
-                            {loadingActions[ticket.id] === 'retrying' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                            <RefreshCw size={12} />
                             Reintentar
                           </button>
                         )}

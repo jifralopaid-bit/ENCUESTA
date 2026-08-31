@@ -9,12 +9,14 @@ import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import SidebarQueue from './components/SidebarQueue';
 import WelcomeModal from './components/WelcomeModal';
+import RevocationModal from './components/RevocationModal';
 
 function App() {
   return (
     <Router>
       <SidebarQueue />
       <WelcomeModal />
+      <RevocationModal />
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />

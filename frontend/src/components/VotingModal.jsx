@@ -5,10 +5,20 @@ import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
-  const [ticket, setTicket] = useState('');
+const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni = '', onVoteSuccess }) => {
+  const [ticket, setTicket] = useState(prefilledDni || '');
   const [controlDigit, setControlDigit] = useState('');
   const dvRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Re-initialize when opened, especially if prefilledDni changes or isRetry changes
+      setTicket(prefilledDni || '');
+      setControlDigit('');
+      setStatus('IDLE');
+      setResultType(null);
+    }
+  }, [isOpen, prefilledDni]);
   
   // Estados de la máquina: IDLE, PROCESSING, RESULT
   const [status, setStatus] = useState('IDLE'); 
@@ -43,7 +53,8 @@ const VotingModal = ({ isOpen, onClose, candidate, onVoteSuccess }) => {
         dni: String(ticket),
         digito_verificador: String(controlDigit),
         opcion_id: candidate.id,
-        user_token: userToken
+        user_token: userToken,
+        is_retry: isRetry
       };
       
       setStatus('PROCESSING');
