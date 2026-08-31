@@ -132,7 +132,12 @@ const AdminDashboard = () => {
     
     // Fetch regidores for this candidate
     try {
-      const { data, error } = await supabase.from('regidores').select('*').eq('candidato_id', cand.id);
+      const { data, error } = await supabase
+        .from('regidores')
+        .select('*')
+        .eq('candidato_id', cand.id)
+        .order('cargo', { ascending: true });
+        
       if (error) throw error;
       setRegidores(data.map(r => ({ ...r, hojaVidaPdfFile: null })));
     } catch (error) {

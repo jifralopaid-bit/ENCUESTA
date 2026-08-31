@@ -19,7 +19,8 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
       const { data, error } = await supabase
         .from('regidores')
         .select('*')
-        .eq('candidato_id', candidato.id);
+        .eq('candidato_id', candidato.id)
+        .order('cargo', { ascending: true });
       
       if (error) throw error;
       setRegidores(data || []);
