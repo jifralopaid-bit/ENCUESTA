@@ -7,6 +7,7 @@ const RevocacionesPanel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     fetchRevocaciones();
@@ -123,9 +124,10 @@ const RevocacionesPanel = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {solicitudes.map(r => {
-                  // Ensure we use the masked route through Vercel rewrites
-                  const urlPart = r.foto_url.includes('/') ? r.foto_url.split('/').pop() : r.foto_url;
-                  const imageSrc = `/imagen/${urlPart}`;
+                  const isBase64 = r.foto_url?.startsWith('data:image');
+                  const imageSrc = isBase64 
+                    ? r.foto_url 
+                    : `/imagen/${r.foto_url?.includes('/') ? r.foto_url.split('/').pop() : r.foto_url}`;
                   
                   return (
                     <tr key={r.id} className="hover:bg-gray-50 transition">
@@ -133,14 +135,12 @@ const RevocacionesPanel = () => {
                       <td className="px-4 py-3">{r.telefono}</td>
                       <td className="px-4 py-3 text-xs">{new Date(r.created_at).toLocaleString()}</td>
                       <td className="px-4 py-3 text-center">
-                        <a 
-                          href={imageSrc} 
-                          target="_blank" 
-                          rel="noreferrer"
+                        <button 
+                          onClick={() => setPreviewImage(imageSrc)}
                           className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium bg-emerald-50 px-2 py-1 rounded transition"
                         >
                           Ver Foto <ExternalLink size={14} />
-                        </a>
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -158,6 +158,25 @@ const RevocacionesPanel = () => {
           </div>
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 md:-right-12 text-white hover:text-gray-300 p-2 bg-black/50 hover:bg-black/80 rounded-full transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <img 
+              src={previewImage} 
+              alt="Evidencia DNI" 
+              className="max-w-full max-h-[85vh] object-contain rounded shadow-2xl bg-gray-900" 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
