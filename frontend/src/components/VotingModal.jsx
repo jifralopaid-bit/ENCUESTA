@@ -198,11 +198,19 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
                   disabled={isProcessing}
                   value={controlDigit}
                   ref={dvRef}
-                  onChange={(e) => setControlDigit(e.target.value.toUpperCase())}
+                  onChange={(e) => setControlDigit(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-2 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none uppercase transition-shadow text-lg tracking-wider font-medium text-center disabled:bg-gray-100 disabled:text-gray-400 h-[48px]"
-                  placeholder="K"
+                  placeholder="9"
                 />
               </div>
+            </div>
+
+            <div className="flex justify-center py-1">
+              <img 
+                src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787692415/LCCE4P37QNGG5IRLNK6BKJ2HYY_1.png" 
+                alt="Ubicación del Dígito Verificador" 
+                className="h-28 object-contain rounded opacity-90 mix-blend-multiply" 
+              />
             </div>
 
             <button 
