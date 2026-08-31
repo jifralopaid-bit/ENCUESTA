@@ -384,8 +384,11 @@ const AdminDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Foto de Perfil {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarla)</span>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Foto de Perfil {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarla)</span>}</span>
+                      {candidato.image_url && (
+                        <a href={candidato.image_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={12}/> Ver Foto Actual</a>
+                      )}
                     </label>
                     <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
@@ -404,8 +407,11 @@ const AdminDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Logo del Partido {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarlo)</span>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Logo del Partido {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarlo)</span>}</span>
+                      {candidato.logo_partido_url && (
+                        <a href={candidato.logo_partido_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={12}/> Ver Logo Actual</a>
+                      )}
                     </label>
                     <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
@@ -424,8 +430,11 @@ const AdminDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Plan de Gobierno {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarlo)</span>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Plan de Gobierno {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarlo)</span>}</span>
+                      {candidato.plan_gobierno_pdf_url && (
+                        <a href={candidato.plan_gobierno_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={12}/> Ver PDF Actual</a>
+                      )}
                     </label>
                     <div className="flex items-center gap-3">
                       <FileText className="text-gray-400" size={24} />
@@ -438,8 +447,11 @@ const AdminDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hoja de Vida {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarla)</span>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Hoja de Vida {editingId && <span className="text-emerald-600 text-xs font-normal">(Opcional si no deseas cambiarla)</span>}</span>
+                      {candidato.hoja_vida_pdf_url && (
+                        <a href={candidato.hoja_vida_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={12}/> Ver PDF Actual</a>
+                      )}
                     </label>
                     <div className="flex items-center gap-3">
                       <FileText className="text-gray-400" size={24} />
@@ -504,8 +516,11 @@ const AdminDashboard = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Foto de Perfil {editingId && reg.image_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}
+                          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center justify-between">
+                            <span>Foto de Perfil {editingId && reg.image_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}</span>
+                            {reg.image_url && (
+                              <a href={reg.image_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={10}/> Ver Foto</a>
+                            )}
                           </label>
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-300">
@@ -523,8 +538,11 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Hoja de Vida (PDF) {editingId && reg.hoja_vida_pdf_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}
+                          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center justify-between">
+                            <span>Hoja de Vida (PDF) {editingId && reg.hoja_vida_pdf_url && <span className="text-emerald-600 font-normal">(Opcional)</span>}</span>
+                            {reg.hoja_vida_pdf_url && (
+                              <a href={reg.hoja_vida_pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={10}/> Ver PDF</a>
+                            )}
                           </label>
                           <input 
                             type="file" accept="application/pdf" required={!reg.hoja_vida_pdf_url}
