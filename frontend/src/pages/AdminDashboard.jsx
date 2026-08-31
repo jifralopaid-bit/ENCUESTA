@@ -29,6 +29,7 @@ const AdminDashboard = () => {
     return {
       name: '',
       proposal: '',
+      orden: 0,
       fotoFile: null,
       logoFile: null,
       planPdfFile: null,
@@ -46,7 +47,7 @@ const AdminDashboard = () => {
 
   const fetchCandidatosList = async () => {
     try {
-      const { data, error } = await supabase.from('candidatos').select('*').neq('name', '___telegram_session___').order('id', { ascending: true });
+      const { data, error } = await supabase.from('candidatos').select('*').neq('name', '___telegram_session___').order('orden', { ascending: true });
       if (error) throw error;
       setCandidatosList(data || []);
     } catch (error) {
@@ -120,6 +121,7 @@ const AdminDashboard = () => {
     setCandidato({
       name: cand.name,
       proposal: cand.proposal,
+      orden: cand.orden || 0,
       fotoFile: null,
       logoFile: null,
       planPdfFile: null,
@@ -196,6 +198,7 @@ const AdminDashboard = () => {
           .update({
             name: candidato.name,
             proposal: candidato.proposal,
+            orden: parseInt(candidato.orden) || 0,
             image_url: imageUrl,
             logo_partido_url: logoUrl,
             plan_gobierno_pdf_url: planUrl,
@@ -215,6 +218,7 @@ const AdminDashboard = () => {
           .insert([{
             name: candidato.name,
             proposal: candidato.proposal,
+            orden: parseInt(candidato.orden) || 0,
             image_url: imageUrl,
             logo_partido_url: logoUrl,
             plan_gobierno_pdf_url: planUrl,
@@ -363,14 +367,25 @@ const AdminDashboard = () => {
                 <h3 className="text-lg font-semibold text-emerald-700 border-b pb-2">Información Principal</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
-                    <input 
-                      type="text" required
-                      value={candidato.name}
-                      onChange={e => setCandidato({...candidato, name: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
+                  <div className="md:col-span-2 flex flex-col md:flex-row gap-5">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                      <input 
+                        type="text" required
+                        value={candidato.name}
+                        onChange={e => setCandidato({...candidato, name: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                    </div>
+                    <div className="w-full md:w-32">
+                      <label className="block text-sm font-medium text-gray-700 mb-1" title="Posición en la que aparecerá (1, 2, 3...)">Orden (#)</label>
+                      <input 
+                        type="number" required min="0"
+                        value={candidato.orden}
+                        onChange={e => setCandidato({...candidato, orden: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                    </div>
                   </div>
                   
                   <div className="md:col-span-2">
