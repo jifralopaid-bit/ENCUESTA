@@ -12,6 +12,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const Votacion = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorLoading, setErrorLoading] = useState('');
   
   // Estados de resultados en vivo
   const [liveResults, setLiveResults] = useState([]);
@@ -63,6 +64,7 @@ const Votacion = () => {
 
   const fetchCandidates = async () => {
     setLoading(true);
+    setErrorLoading('');
     try {
       const { data, error } = await supabase.from('candidatos').select('*').neq('name', '___telegram_session___').order('id', { ascending: true });
         
@@ -70,6 +72,7 @@ const Votacion = () => {
       setCandidates(data || []);
     } catch (error) {
       console.error('Error fetching candidates:', error);
+      setErrorLoading('Ocurrió un error al cargar los candidatos. Por favor, recarga la página.');
     } finally {
       setLoading(false);
     }
@@ -136,6 +139,13 @@ const Votacion = () => {
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="animate-spin text-emerald-600 mb-4" size={48} />
             <p className="text-gray-500 font-medium">Cargando candidatos oficiales...</p>
+          </div>
+        ) : errorLoading ? (
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-red-100">
+            <p className="text-red-500 text-lg font-medium">{errorLoading}</p>
+            <button onClick={() => window.location.reload()} className="mt-4 bg-red-50 text-red-600 px-4 py-2 rounded font-semibold hover:bg-red-100 transition">
+              Recargar página
+            </button>
           </div>
         ) : candidates.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">

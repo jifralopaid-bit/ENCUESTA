@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/imagen/:path*",
+      "destination": "https://vexjqvxxsyiuybxetlnq.supabase.co/storage/v1/object/public/archivos_electorales/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

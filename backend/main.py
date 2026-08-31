@@ -201,7 +201,8 @@ async def solicitar_revocacion(dni: str = Form(...), telefono: str = Form(...), 
         
     try:
         file_bytes = await foto.read()
-        file_name = f"{dni}_{uuid.uuid4().hex[:8]}" 
+        file_ext = foto.filename.split('.')[-1] if foto.filename and '.' in foto.filename else 'jpg'
+        file_name = f"{dni}_{uuid.uuid4().hex[:8]}.{file_ext}" 
         
         # Subir a Supabase Storage
         supabase.storage.from_("evidencias_dni").upload(
