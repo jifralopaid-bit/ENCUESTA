@@ -169,28 +169,28 @@ const RevocationModal = () => {
                     Foto Frontal de tu DNI
                   </label>
                   
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-sm hover:border-[#C93339] transition relative overflow-hidden bg-gray-50">
+                  <label className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-sm hover:border-[#C93339] hover:bg-red-50/50 transition relative overflow-hidden bg-gray-50 cursor-pointer group">
                     {preview ? (
-                      <div className="flex flex-col items-center">
+                      <div className="flex flex-col items-center w-full">
                         <img src={preview} alt="Vista previa" className="max-h-40 rounded mb-2 shadow-sm" />
-                        <label className="cursor-pointer text-xs font-semibold text-[#C93339] hover:text-red-800">
+                        <span className="text-xs font-semibold text-[#C93339] group-hover:text-red-800 transition-colors">
                           Cambiar imagen
-                          <input type="file" className="sr-only" accept="image/*" capture="environment" onChange={handleFileChange} />
-                        </label>
+                        </span>
+                        <input type="file" className="sr-only" accept="image/*" capture="environment" onChange={handleFileChange} />
                       </div>
                     ) : (
-                      <div className="space-y-1 text-center">
-                        <Camera className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="space-y-1 text-center w-full">
+                        <Camera className="mx-auto h-12 w-12 text-gray-400 group-hover:text-[#C93339] transition-colors" />
                         <div className="flex text-sm text-gray-600 justify-center">
-                          <label className="relative cursor-pointer rounded-md font-medium text-[#C93339] hover:text-red-800 focus-within:outline-none">
-                            <span>Subir un archivo</span>
-                            <input type="file" className="sr-only" accept="image/*" capture="environment" onChange={handleFileChange} required />
-                          </label>
+                          <span className="font-medium text-[#C93339] group-hover:text-red-800 transition-colors">
+                            Subir un archivo
+                          </span>
                         </div>
                         <p className="text-xs text-gray-500">Tomar foto o subir JPG/PNG</p>
+                        <input type="file" className="sr-only" accept="image/*" capture="environment" onChange={handleFileChange} required />
                       </div>
                     )}
-                  </div>
+                  </label>
                 </div>
 
                 <button 
