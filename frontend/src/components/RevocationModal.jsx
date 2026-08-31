@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, CheckCircle, AlertCircle, Loader2, Camera } from 'lucide-react';
-import axios from 'axios';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { supabase } from '../lib/supabase';
 
 const RevocationModal = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,16 +46,35 @@ const RevocationModal = () => {
 
     try {
       setStatus('PROCESSING');
-      const formData = new FormData();
-      formData.append('dni', dni);
-      formData.append('telefono', telefono);
-      formData.append('foto', foto);
-
-      await axios.post(`${BACKEND_URL}/api/revocacion`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      
+      const fileExt = foto.name.split('.').pop() || 'jpg';
+      const fileName = `${dni}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      
+      // Upload image to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('evidencias_dni')
+        .upload(fileName, foto, {
+          contentType: foto.type
+        });
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('evidencias_dni')
+        .getPublicUrl(fileName);
+        
+      // Insert into database
+      const { error: insertError } = await supabase
+        .from('solicitudes_revocacion')
+        .insert({
+            dni: dni,
+            telefono: telefono,
+            foto_url: publicUrl,
+            estado: 'pendiente'
+        });
+        
+      if (insertError) throw insertError;
 
       setStatus('RESULT');
       setMessage("Solicitud enviada. Nos comunicaremos contigo.");

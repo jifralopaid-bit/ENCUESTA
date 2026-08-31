@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { supabase } from '../lib/supabase';
 
 const RevocacionesPanel = () => {
   const [solicitudes, setSolicitudes] = useState([]);
@@ -17,9 +16,14 @@ const RevocacionesPanel = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/revocaciones`);
-      if (!response.ok) throw new Error('Error en el servidor');
-      const data = await response.json();
+      const { data, error: err } = await supabase
+        .from('solicitudes_revocacion')
+        .select('*')
+        .eq('estado', 'pendiente')
+        .order('created_at', { ascending: false });
+
+      if (err) throw err;
+      
       setSolicitudes(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Error fetching revocaciones", e);
@@ -32,11 +36,31 @@ const RevocacionesPanel = () => {
   const handleAprobarRevocacion = async (id) => {
     if (!window.confirm('¿Estás seguro de aprobar esta solicitud? Se eliminará el voto anterior asociado a este DNI y el usuario podrá votar de nuevo.')) return;
     try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/revocaciones/${id}/aprobar`, { method: 'POST' });
-      if (!response.ok) throw new Error('Error al aprobar');
+      // Obtener el DNI de la solicitud
+      const { data: reqData, error: reqError } = await supabase
+        .from('solicitudes_revocacion')
+        .select('dni')
+        .eq('id', id)
+        .single();
+        
+      if (reqError) throw reqError;
+      
+      const dni_afectado = reqData.dni;
+      
+      // Eliminar el voto existente
+      await supabase.from('votos').delete().eq('dni', dni_afectado);
+      await supabase.from('cola_votos').delete().eq('dni', dni_afectado);
+      
+      // Actualizar estado de la solicitud
+      const { error: updateError } = await supabase
+        .from('solicitudes_revocacion')
+        .update({ estado: 'aprobado' })
+        .eq('id', id);
+        
+      if (updateError) throw updateError;
       
       setMessage('Revocación aprobada exitosamente.');
-      setSolicitudes(prev => prev.filter(s => s.id !== id)); // Remove from local state
+      setSolicitudes(prev => prev.filter(s => s.id !== id));
       
       setTimeout(() => setMessage(''), 3000);
     } catch (e) {

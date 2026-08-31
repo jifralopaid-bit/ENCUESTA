@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Loader2, CheckCircle, AlertCircle, X, ChevronRight, List, Trash2, RefreshCw } from 'lucide-react';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { supabase } from '../lib/supabase';
 
 const SidebarQueue = () => {
   const [tickets, setTickets] = useState([]);
@@ -19,8 +17,14 @@ const SidebarQueue = () => {
 
     const fetchQueue = async () => {
       try {
-        const response = await axios.get(`${BACKEND_URL}/api/cola/${token}`);
-        setTickets(response.data);
+        const { data, error } = await supabase
+          .from('cola_votos')
+          .select('*')
+          .eq('user_token', token)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        setTickets(data || []);
       } catch (error) {
         console.error("Error fetching queue:", error);
       }
@@ -37,7 +41,7 @@ const SidebarQueue = () => {
   const handleDelete = async (id) => {
     setLoadingActions(prev => ({ ...prev, [id]: 'deleting' }));
     try {
-      await axios.delete(`${BACKEND_URL}/api/cola/${id}`);
+      await supabase.from('cola_votos').delete().eq('id', id);
       setTickets(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error(e);

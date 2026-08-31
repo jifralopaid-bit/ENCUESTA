@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, AlertCircle, ShieldCheck, Info } from 'lucide-react';
-import axios from 'axios';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { supabase } from '../lib/supabase';
 
 const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni = '', onVoteSuccess }) => {
   const [ticket, setTicket] = useState(prefilledDni || '');
@@ -28,6 +26,16 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
   // Prevenir renderizado con estado nulo y si está cerrado
   if (!isOpen || !candidate) return null;
 
+  const checkModulo11 = (dni, dv) => {
+    if (dni.length !== 8 || !/^\d+$/.test(dni)) return false;
+    const multipliers = [3, 2, 7, 6, 5, 4, 3, 2];
+    const total = dni.split('').reduce((sum, d, i) => sum + parseInt(d) * multipliers[i], 0);
+    const mod = total % 11;
+    const lookup = "67890112345";
+    const expected = lookup[mod];
+    if (dv.toUpperCase() === 'K' && expected === '1') return true;
+    return dv.toUpperCase() === expected;
+  };
 
   const handleStartQueue = async (e) => {
     e.preventDefault();
@@ -44,21 +52,30 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       return;
     }
     
-    // Entrar a la cola real llamando al backend
+    if (!isRetry && !checkModulo11(ticket, controlDigit)) {
+      setResultType('error');
+      setMessage('El dígito verificador no coincide con la fórmula oficial de RENIEC. Verifica e intenta de nuevo.');
+      setStatus('RESULT');
+      return;
+    }
+    
+    // Entrar a la cola real llamando a Supabase
     try {
       const userToken = localStorage.getItem('userToken') || crypto.randomUUID();
       localStorage.setItem('userToken', userToken);
 
-      const payload = {
-        dni: String(ticket),
-        digito_verificador: String(controlDigit),
-        opcion_id: candidate.id,
-        user_token: userToken,
-        is_retry: isRetry
-      };
-      
       setStatus('PROCESSING');
-      await axios.post(`${BACKEND_URL}/api/votar`, payload);
+      
+      const { error } = await supabase.from('cola_votos').insert({
+          dni: String(ticket),
+          dv: String(controlDigit),
+          candidato_id: candidate.id,
+          user_token: userToken,
+          estado: 'pendiente',
+          mensaje: 'En cola de validación'
+      });
+      
+      if (error) throw error;
       
       setResultType('success');
       setMessage('Ticket enviado a la fila de validación.');
@@ -71,9 +88,8 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       
     } catch (error) {
       console.error("Error al encolar:", error);
-      const errorData = error.response?.data?.detail || error.message || "Error al conectar con los servidores centrales.";
       setResultType('error');
-      setMessage(typeof errorData === 'string' ? errorData : JSON.stringify(errorData));
+      setMessage("Error al procesar tu turno. Intenta nuevamente.");
       setStatus('RESULT');
     }
   };
