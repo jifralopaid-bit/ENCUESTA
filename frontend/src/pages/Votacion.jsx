@@ -29,7 +29,9 @@ const Votacion = () => {
 
   useEffect(() => {
     fetchCandidates();
+  }, []);
 
+  useEffect(() => {
     const handleOpenModal = (e) => {
       // Find candidate by ID to pass full object
       const cand = candidates.find(c => c.id === e.detail.candidateId);
