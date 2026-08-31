@@ -306,7 +306,7 @@ const AdminDashboard = () => {
             {candidatosList.length === 0 ? (
               <p className="text-gray-500 italic text-sm">No hay candidatos. Registra uno nuevo abajo.</p>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6">
                 {candidatosList.map(c => (
                   <div key={c.id} className="border border-gray-200 rounded-xl p-4 flex flex-col items-center text-center relative hover:shadow-md transition">
                     <img src={c.image_url} alt={c.name} className="w-16 h-16 object-cover rounded-full mb-3 shadow-sm" />
