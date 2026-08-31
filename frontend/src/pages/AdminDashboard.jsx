@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2, XCircle, Loader2, RefreshCw, CheckCircle, ExternalLink } from 'lucide-react';
+import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2, XCircle, Loader2, RefreshCw, CheckCircle, ExternalLink, GripHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TelegramConfig from '../components/TelegramConfig';
 import RevocacionesPanel from './RevocacionesPanel';
@@ -24,6 +24,10 @@ const AdminDashboard = () => {
 
   // Estado Dinámico de Regidores
   const [regidores, setRegidores] = useState([]);
+
+  // Refs para Drag and Drop
+  const dragItem = React.useRef(null);
+  const dragOverItem = React.useRef(null);
 
   function getInitialCandidatoState() {
     return {
@@ -115,6 +119,58 @@ const AdminDashboard = () => {
     const { data: { publicUrl } } = supabase.storage.from('archivos_electorales').getPublicUrl(filePath);
     return publicUrl;
   };
+
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e, index) => {
+    dragItem.current = index;
+    // Opcional: efecto visual
+    setTimeout(() => {
+      if (e.target) e.target.style.opacity = '0.5';
+    }, 0);
+  };
+
+  const handleDragEnter = (e, index) => {
+    e.preventDefault();
+    dragOverItem.current = index;
+  };
+
+  const handleDragEnd = async (e) => {
+    if (e.target) e.target.style.opacity = '1';
+    
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === dragOverItem.current) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    const _candidatosList = [...candidatosList];
+    const draggedItemContent = _candidatosList.splice(dragItem.current, 1)[0];
+    _candidatosList.splice(dragOverItem.current, 0, draggedItemContent);
+    
+    // Reasignar orden basado en la nueva posición visual
+    const updatedList = _candidatosList.map((c, idx) => ({ ...c, orden: idx + 1 }));
+    setCandidatosList(updatedList);
+    
+    dragItem.current = null;
+    dragOverItem.current = null;
+
+    try {
+      // Guardar todo en la base de datos en paralelo
+      const promises = updatedList.map(cand => 
+        supabase.from('candidatos').update({ orden: cand.orden }).eq('id', cand.id)
+      );
+      await Promise.all(promises);
+      
+      // Mostrar mensajito sutil de éxito (opcional)
+      setMessage('Orden guardado correctamente.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error(error);
+      setMessage('Error al actualizar el orden de los candidatos.');
+    }
+  };
+  // -----------------------------
 
   const handleEdit = async (cand) => {
     setEditingId(cand.id);
@@ -306,14 +362,43 @@ const AdminDashboard = () => {
         {/* === LISTA DE CANDIDATOS === */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 md:p-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Candidatos Registrados</h2>
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h2 className="text-xl font-bold text-gray-900">Candidatos Registrados</h2>
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <GripHorizontal size={14} /> Arrastra las tarjetas para reordenarlas
+              </span>
+            </div>
+            
+            {message && message === 'Orden guardado correctamente.' && (
+              <div className="mb-4 text-emerald-600 text-sm font-medium animate-pulse">
+                {message}
+              </div>
+            )}
+            {message && message.includes('Error al actualizar el orden') && (
+              <div className="mb-4 text-red-600 text-sm font-medium">
+                {message}
+              </div>
+            )}
+
             {candidatosList.length === 0 ? (
               <p className="text-gray-500 italic text-sm">No hay candidatos. Registra uno nuevo abajo.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6">
-                {candidatosList.map(c => (
-                  <div key={c.id} className="border border-gray-200 rounded-xl p-4 flex flex-col items-center text-center relative hover:shadow-md transition">
-                    <img src={c.image_url} alt={c.name} className="w-16 h-16 object-cover rounded-full mb-3 shadow-sm" />
+                {candidatosList.map((c, index) => (
+                  <div 
+                    key={c.id} 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnter={(e) => handleDragEnter(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => e.preventDefault()}
+                    className="border border-gray-200 rounded-xl p-4 flex flex-col items-center text-center relative hover:shadow-lg transition bg-white cursor-move"
+                    title="Arrastra para reordenar"
+                  >
+                    <div className="absolute top-2 left-2 text-gray-300">
+                      <GripHorizontal size={18} />
+                    </div>
+                    <img src={c.image_url} alt={c.name} className="w-16 h-16 object-cover rounded-full mb-3 shadow-sm pointer-events-none" />
                     <h4 className="font-bold text-gray-900 text-sm mb-1">{c.name}</h4>
                     <p className="text-xs text-gray-500 line-clamp-2 mb-4">{c.proposal}</p>
                     
