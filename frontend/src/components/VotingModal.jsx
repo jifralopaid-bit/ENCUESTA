@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni = '', onVoteSuccess }) => {
   const [ticket, setTicket] = useState(prefilledDni || '');
   const [controlDigit, setControlDigit] = useState('');
+  const [hasFailedOnce, setHasFailedOnce] = useState(false);
   const dvRef = useRef(null);
 
   useEffect(() => {
@@ -15,6 +16,7 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       setControlDigit('');
       setStatus('IDLE');
       setResultType(null);
+      setHasFailedOnce(false);
     }
   }, [isOpen, prefilledDni]);
   
@@ -58,9 +60,10 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       return;
     }
     
-    if (!isRetry && !checkModulo11(ticket, controlDigit)) {
+    if (!isRetry && !hasFailedOnce && !checkModulo11(ticket, controlDigit)) {
+      setHasFailedOnce(true);
       setResultType('error');
-      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion.');
+      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion. Si estás seguro de que es correcto, intenta de nuevo y el sistema te dejará pasar.');
       setStatus('RESULT');
       return;
     }
