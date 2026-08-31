@@ -37,6 +37,37 @@ const RevocationModal = () => {
     }
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 800;
+
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!telefono || !foto) {
@@ -47,30 +78,16 @@ const RevocationModal = () => {
     try {
       setStatus('PROCESSING');
       
-      const fileExt = foto.name.split('.').pop() || 'jpg';
-      const fileName = `${dni}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
-      
-      // Upload image to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('evidencias_dni')
-        .upload(fileName, foto, {
-          contentType: foto.type
-        });
+      // Compress the image to Base64 to bypass storage RLS
+      const base64Foto = await compressImage(foto);
         
-      if (uploadError) throw uploadError;
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('evidencias_dni')
-        .getPublicUrl(fileName);
-        
-      // Insert into database
+      // Insert into database directly with Base64 string
       const { error: insertError } = await supabase
         .from('solicitudes_revocacion')
         .insert({
             dni: dni,
             telefono: telefono,
-            foto_url: publicUrl,
+            foto_url: base64Foto,
             estado: 'pendiente'
         });
         
@@ -79,9 +96,9 @@ const RevocationModal = () => {
       setStatus('RESULT');
       setMessage("Solicitud enviada. Nos comunicaremos contigo.");
     } catch (error) {
-      console.error(error);
+      console.error("Full error object:", error);
       setStatus('ERROR');
-      setMessage("Hubo un error al enviar tu solicitud. Inténtalo más tarde.");
+      setMessage("Error: " + (error.message || JSON.stringify(error)));
     }
   };
 
