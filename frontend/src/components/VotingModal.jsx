@@ -63,7 +63,7 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
     if (!isRetry && !hasFailedOnce && !checkModulo11(ticket, controlDigit)) {
       setHasFailedOnce(true);
       setResultType('error');
-      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion. Si estás seguro de que es correcto, intenta de nuevo y el sistema te dejará pasar.');
+      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion.');
       setStatus('RESULT');
       return;
     }
