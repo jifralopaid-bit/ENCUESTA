@@ -29,16 +29,18 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
   const checkModulo11 = (dni, dv) => {
     if (dni.length !== 8 || !/^\d+$/.test(dni)) return false;
     
-    // El algoritmo oficial de RENIEC aplica los factores 3,2,7,6,5,4,3,2 de DERECHA a IZQUIERDA.
-    // Lo cual equivale a aplicar [2, 3, 4, 5, 6, 7, 2, 3] de IZQUIERDA a DERECHA.
-    const multipliers = [2, 3, 4, 5, 6, 7, 2, 3];
-    const total = dni.split('').reduce((sum, d, i) => sum + parseInt(d) * multipliers[i], 0);
-    const mod = total % 11;
-    const lookup = "67890112345";
-    const expected = lookup[mod];
+    const factores = [3, 2, 7, 6, 5, 4, 3, 2];
+    const equivalencias = [6, 7, 8, 9, 0, 1, 1, 2, 3, 4, 5];
     
-    if (dv.toUpperCase() === 'K' && expected === '1') return true;
-    return dv.toUpperCase() === expected;
+    let suma = 0;
+    for (let i = 0; i < 8; i++) {
+      suma += parseInt(dni[i]) * factores[i];
+    }
+    
+    const residuo = suma % 11;
+    const expected = equivalencias[residuo].toString();
+    
+    return dv.toString() === expected;
   };
 
   const handleStartQueue = async (e) => {
