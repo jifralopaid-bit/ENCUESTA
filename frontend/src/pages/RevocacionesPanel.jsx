@@ -9,18 +9,21 @@ const RevocacionesPanel = () => {
   const [message, setMessage] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
 
+  const [activeTab, setActiveTab] = useState('pendientes');
+
   useEffect(() => {
     fetchRevocaciones();
-  }, []);
+  }, [activeTab]);
 
   const fetchRevocaciones = async () => {
     setLoading(true);
     setError(null);
     try {
+      const statusFilter = activeTab === 'pendientes' ? 'pendiente' : 'aprobado';
       const { data, error: err } = await supabase
         .from('solicitudes_revocacion')
         .select('*')
-        .eq('estado', 'pendiente')
+        .eq('estado', statusFilter)
         .order('created_at', { ascending: false });
 
       if (err) throw err;
@@ -74,7 +77,7 @@ const RevocacionesPanel = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl shadow-sm border border-gray-200">
         <Loader2 className="animate-spin text-emerald-600 mb-4" size={32} />
-        <p className="text-gray-500 font-medium">Cargando solicitudes pendientes...</p>
+        <p className="text-gray-500 font-medium">Cargando solicitudes...</p>
       </div>
     );
   }
@@ -93,11 +96,29 @@ const RevocacionesPanel = () => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-6 md:p-8">
-        <div className="flex justify-between items-center mb-4 border-b pb-2">
-          <h2 className="text-xl font-bold text-gray-900">Solicitudes de Revocación Pendientes</h2>
-          <span className="bg-red-100 text-red-600 font-bold py-1 px-3 rounded-full text-xs">
-            {solicitudes.length} en cola
-          </span>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-900">Gestión de Revocaciones</h2>
+          {activeTab === 'pendientes' && (
+            <span className="bg-red-100 text-red-600 font-bold py-1 px-3 rounded-full text-xs">
+              {solicitudes.length} en cola
+            </span>
+          )}
+        </div>
+        
+        {/* TABS */}
+        <div className="flex gap-4 mb-6 border-b border-gray-200">
+          <button 
+            className={`pb-2 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'pendientes' ? 'border-[#C93339] text-[#C93339]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('pendientes')}
+          >
+            Pendientes
+          </button>
+          <button 
+            className={`pb-2 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'historial' ? 'border-[#C93339] text-[#C93339]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('historial')}
+          >
+            Historial (Aprobadas)
+          </button>
         </div>
         
         {message && (
@@ -108,7 +129,7 @@ const RevocacionesPanel = () => {
 
         {solicitudes.length === 0 ? (
           <p className="text-gray-500 italic text-sm text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-            No hay solicitudes pendientes por el momento.
+            {activeTab === 'pendientes' ? 'No hay solicitudes pendientes por el momento.' : 'Aún no se ha aprobado ninguna revocación.'}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -119,7 +140,7 @@ const RevocacionesPanel = () => {
                   <th className="px-4 py-3 font-semibold">Teléfono</th>
                   <th className="px-4 py-3 font-semibold">Fecha (UTC)</th>
                   <th className="px-4 py-3 font-semibold text-center">Evidencia</th>
-                  <th className="px-4 py-3 font-semibold text-right">Acción</th>
+                  <th className="px-4 py-3 font-semibold text-right">{activeTab === 'pendientes' ? 'Acción' : 'Estado'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -143,12 +164,18 @@ const RevocacionesPanel = () => {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleAprobarRevocacion(r.id)}
-                          className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-xs font-bold transition shadow-sm hover:shadow-md"
-                        >
-                          <CheckCircle size={16} /> Aprobar y Devolver Voto
-                        </button>
+                        {activeTab === 'pendientes' ? (
+                          <button
+                            onClick={() => handleAprobarRevocacion(r.id)}
+                            className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-xs font-bold transition shadow-sm hover:shadow-md"
+                          >
+                            <CheckCircle size={16} /> Aprobar y Devolver Voto
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-100 font-bold px-3 py-1 rounded-full text-xs">
+                            <CheckCircle size={14} /> Aprobado
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
