@@ -60,7 +60,7 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
     
     if (!isRetry && !checkModulo11(ticket, controlDigit)) {
       setResultType('error');
-      setMessage('El dígito verificador no coincide con la fórmula oficial de RENIEC. Verifica e intenta de nuevo.');
+      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion.');
       setStatus('RESULT');
       return;
     }
