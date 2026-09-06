@@ -196,7 +196,7 @@ const SidebarQueue = () => {
             
             {/* Footer de información */}
             <div className="p-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 text-center flex flex-col gap-1">
-              <span className="font-semibold text-gray-700">Validación Módulo 11 + RENIEC</span>
+              <span className="font-semibold text-gray-700">Validación Oficial RENIEC / JNE</span>
               <span>Esta ventana no bloquea tu navegación. Puedes cerrarla, tu fila continuará.</span>
             </div>
           </motion.div>

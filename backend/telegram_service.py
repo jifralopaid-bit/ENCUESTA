@@ -1,4 +1,8 @@
 import os
+import asyncio
+import re
+import time
+from datetime import date
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from supabase import create_client, Client
@@ -8,8 +12,8 @@ API_HASH = "bb0e1e43bc59d89507413988fb5d4fa3"
 
 class TelegramValidator:
     def __init__(self):
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")
+        supabase_url = os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY")
         
         session_str = ""
         if supabase_url and supabase_key:
@@ -19,101 +23,172 @@ class TelegramValidator:
                 if res.data and len(res.data) > 0:
                     session_str = res.data[0].get("telegram_session", "")
             except Exception as e:
-                print(f"Error conectando a Supabase para la sesión: {e}")
+                print(f"[Telegram] Error conectando a Supabase para obtener sesión: {e}")
 
-        # Inicializamos el cliente MTProto con la sesión de usuario
+        # Inicializamos el cliente MTProto con la sesión persistida
         self.client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
+        self._lock = asyncio.Lock()
+        self._last_request_time = 0.0
 
-    async def consultar_dni(self, dni: str, digito_esperado: str):
-        try:
-            if not self.client.is_connected():
-                await self.client.connect()
+    async def consultar_dni(self, dni: str, digito_esperado: str = "") -> dict:
+        """
+        Consulta un DNI contra el bot oficial @DominusDox_bot vía MTProto.
+        Reglas estrictas:
+        1. Ignora el dígito verificador devuelto por el bot.
+        2. Extrae Edad y Distrito para que el worker valide la elegibilidad.
+        3. Identifica respuestas explícitas de DNI no existente:
+           '[ ✖ ] No se encontro informacion para los datos ingresados.'
+        4. Detecta y maneja activamente '[ ANTI-SPAM ACTIVADO ]':
+           - Espera el tiempo exacto indicado por el bot (ej. 5.0s) y reintenta de forma transparente.
+        5. Aplica cooldown preventivo mínimo de 5.5s entre comandos para no saturar al bot.
+        6. En caso de timeout o error, retorna status no concluyente para permitir reintentos infinitos (REGLA DE ORO).
+        """
+        async with self._lock:
+            try:
+                if not self.client.is_connected():
+                    await self.client.connect()
 
-            # Enviar el comando al bot oficial @DominusDox_bot
-            target_bot = "@DominusDox_bot"
-            print(f"Enviando comando /dni {dni} a {target_bot}...")
-            
-            sent_msg = await self.client.send_message(target_bot, f"/dni {dni}")
-            
-            import asyncio
-            import re
-            import time
-            from datetime import timezone
-            
-            start_time = time.time()
-            
-            # Máximo de 30 segundos (15 intentos de 2s)
-            max_intentos = 15
-            resultado_final = None
-            
-            for i in range(max_intentos):
-                await asyncio.sleep(2)
-                
-                # Revisamos los mensajes recientes
-                async for message in self.client.iter_messages(target_bot, limit=5):
-                    # Solo procesar mensajes que llegaron DESPUÉS de nuestra petición
-                    # Usamos message.id en lugar de message.date para evitar bugs si responden en el mismo segundo
-                    if message.id > sent_msg.id:
-                        if message.text:
-                            # Caso 1: Encontró los datos
-                            if "RENIEC ONLINE" in message.text and dni in message.text:
-                                # Captura cualquier dígito en la misma línea después del DNI (ignora tipo de guión)
-                                match = re.search(rf"{dni}[^0-9\n]*(\d)", message.text)
-                                if match:
-                                    digito_bot = match.group(1)
-                                    if digito_bot == digito_esperado:
-                                        # Validación 2: Edad >= 18
-                                        match_edad = re.search(r"EDAD[^0-9]*(\d+)", message.text)
-                                        if match_edad:
-                                            edad = int(match_edad.group(1))
-                                            if edad < 18:
-                                                resultado_final = {"success": False, "error": f"El elector no cumple con la mayoría de edad requerida (Tiene {edad} años)."}
-                                                break
-                                                
-                                        # Validación 3: Distrito == LA PECA
-                                        # Buscamos la línea de DISTRITO y comprobamos que diga LA PECA
-                                        match_distrito = re.search(r"DISTRITO[^\n]+LA\s*PECA", message.text, re.IGNORECASE)
-                                        if not match_distrito:
-                                            # Extraer el distrito real para un mensaje más útil
-                                            distrito_real = "otro distrito"
-                                            distrito_raw = re.search(r"DISTRITO[^\w]+([A-Z\s]+)", message.text)
-                                            if distrito_raw:
-                                                distrito_real = distrito_raw.group(1).strip()
-                                            resultado_final = {"success": False, "error": f"El elector se encuentra registrado en '{distrito_real}' y no pertenece al distrito electoral de LA PECA."}
-                                            break
-                                        
-                                        # Si pasa todas las validaciones
-                                        resultado_final = {"success": True, "data": message.text}
+                target_bot = "@DominusDox_bot"
+
+                # Intentos de consulta (en caso de anti-spam temporal, permite hasta 3 reintentos internos con espera)
+                for intento in range(3):
+                    # Cooldown preventivo: asegurar al menos 5.5s desde el último comando enviado al bot
+                    now = time.time()
+                    elapsed = now - self._last_request_time
+                    if elapsed < 5.5:
+                        sleep_wait = 5.5 - elapsed
+                        print(f"[Telegram] Cooldown preventivo anti-spam: esperando {sleep_wait:.2f}s...")
+                        await asyncio.sleep(sleep_wait)
+
+                    print(f"[Telegram] Enviando comando /dni {dni} a {target_bot} (intento {intento + 1}/3)...")
+                    sent_msg = await self.client.send_message(target_bot, f"/dni {dni}")
+                    self._last_request_time = time.time()
+
+                    resultado_final = None
+                    hubo_anti_spam = False
+                    anti_spam_wait = 6.0
+
+                    # 15 ciclos x 2s = 30 segundos de escucha activa
+                    for _ in range(15):
+                        await asyncio.sleep(2)
+
+                        # Revisamos los mensajes recientes del bot posteriores al comando
+                        async for message in self.client.iter_messages(target_bot, limit=6):
+                            if message.id > sent_msg.id and message.text:
+                                text = message.text
+                                text_lower = text.lower()
+
+                                # Caso 1: [ ANTI-SPAM ACTIVADO ]
+                                # Ejemplo: "[ ANTI-SPAM ACTIVADO ] Debes esperar 4.81s antes de usar otro comando."
+                                if (
+                                    "ANTI-SPAM ACTIVADO" in text.upper() or 
+                                    "ANTI-SPAM" in text.upper() or 
+                                    "DEBES ESPERAR" in text.upper()
+                                ):
+                                    print(f"[Telegram] Detectado [ ANTI-SPAM ACTIVADO ] del bot: '{text[:80]}...'")
+                                    match_sec = re.search(r"esperar\s*([0-9\.]+)\s*s", text, re.IGNORECASE)
+                                    if match_sec:
+                                        try:
+                                            anti_spam_wait = float(match_sec.group(1)) + 1.2
+                                        except (ValueError, TypeError):
+                                            anti_spam_wait = 6.0
                                     else:
-                                        resultado_final = {"success": False, "error": "El dígito verificador no coincide con los registros oficiales de RENIEC/JNE."}
-                                else:
-                                    # Si no encontró el dígito, NO salimos del bucle aún. Podría ser un mensaje preliminar del bot.
-                                    # Solo lo marcamos temporalmente. Si llega otro mensaje mejor, lo sobrescribirá.
-                                    pass
-                            
-                            # Caso 2: El bot responde que no existe
-                            elif "no se encontro informacion" in message.text.lower() or "[ ✖ ]" in message.text or "no encontr" in message.text.lower() or "no existe" in message.text.lower() or "error" in message.text.lower():
-                                resultado_final = {"success": False, "error": "No se encontró información para los datos ingresados."}
-                        
-                        if resultado_final is not None:
-                            break
-                if resultado_final is not None:
-                    break
-            
-            if resultado_final is None:
-                resultado_final = {"success": False, "error": "Los servidores de validación JNE/RENIEC están experimentando demoras. Por favor, intente de nuevo en unos minutos."}
-                
+                                        anti_spam_wait = 6.0
 
-                
-            return resultado_final
-        
-        except Exception as e:
-            print(f"Error técnico MTProto (Disfrazado): {e}")
-            return {"success": False, "error": "Conexión segura con JNE/RENIEC interrumpida temporalmente. Reintentando en breve..."}
+                                    hubo_anti_spam = True
+                                    break
+
+                                # Caso 2: DNI Inexistente / No Encontrado
+                                # Ejemplo: "[ ✖ ] No se encontro informacion para los datos ingresados."
+                                if (
+                                    "[ ✖ ]" in text or 
+                                    "[✖]" in text or 
+                                    "no se encontro informacion" in text_lower or 
+                                    "no se encontró información" in text_lower or 
+                                    "no se encontro registro" in text_lower or 
+                                    "no existe" in text_lower or 
+                                    "dni no valido" in text_lower or 
+                                    "dni no válido" in text_lower or
+                                    "no encontrado" in text_lower
+                                ):
+                                    print(f"[Telegram] DNI {dni} no existe o no encontrado en RENIEC: '{text}'")
+                                    resultado_final = {
+                                        "status": "not_found",
+                                        "error": "No se encontró información para los datos ingresados en RENIEC."
+                                    }
+                                    break
+
+                                # Caso 3: Encontró la información oficial (RENIEC ONLINE o presencia de DNI con atributos)
+                                if dni in text and ("RENIEC" in text.upper() or "EDAD" in text.upper() or "DISTRITO" in text.upper() or "NOMBRES" in text.upper()):
+                                    print(f"[Telegram] Respuesta RENIEC recibida exitosamente para DNI {dni}.")
+                                    
+                                    # 1. Extracción de Edad
+                                    edad = None
+                                    match_edad = re.search(r"EDAD[^\d\n]*(\d+)", text, re.IGNORECASE)
+                                    if match_edad:
+                                        try:
+                                            edad = int(match_edad.group(1))
+                                        except (ValueError, TypeError):
+                                            edad = None
+                                    else:
+                                        match_fnac = re.search(r"(?:NACIMIENTO|FECHA DE NAC)[^\d\n]*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})", text, re.IGNORECASE)
+                                        if match_fnac:
+                                            try:
+                                                d, m, y = int(match_fnac.group(1)), int(match_fnac.group(2)), int(match_fnac.group(3))
+                                                born = date(y, m, d)
+                                                today = date.today()
+                                                edad = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+                                            except Exception:
+                                                pass
+
+                                    # 2. Extracción de Distrito
+                                    distrito = ""
+                                    match_distrito = re.search(r"DISTRITO[^\w\n]*([^\n\r]+)", text, re.IGNORECASE)
+                                    if match_distrito:
+                                        distrito = match_distrito.group(1).strip()
+                                    else:
+                                        for line in text.splitlines():
+                                            if "DISTRITO" in line.upper():
+                                                distrito = line.replace("DISTRITO", "").replace(":", "").strip()
+                                                break
+
+                                    resultado_final = {
+                                        "status": "success",
+                                        "edad": edad,
+                                        "distrito": distrito,
+                                        "raw": text
+                                    }
+                                    break
+
+                        if hubo_anti_spam or resultado_final is not None:
+                            break
+
+                    # Si fue frenado por anti-spam, esperamos el cooldown requerido y pasamos al siguiente intento
+                    if hubo_anti_spam:
+                        print(f"[Telegram] Esperando {anti_spam_wait:.2f}s por Anti-Spam antes de reintentar comando...")
+                        await asyncio.sleep(anti_spam_wait)
+                        continue
+
+                    # Si obtuvimos un resultado concluyente (success o not_found), retornarlo
+                    if resultado_final is not None:
+                        return resultado_final
+
+                # Si después de los 3 intentos no hubo respuesta definitiva
+                print(f"[Telegram] Timeout o saturación esperando respuesta de {target_bot} para DNI {dni}.")
+                return {
+                    "status": "timeout",
+                    "error": "El bot de validación está ocupado o experimentando demoras."
+                }
+
+            except Exception as e:
+                print(f"[Telegram] Excepción técnica o de red: {e}")
+                return {
+                    "status": "error",
+                    "error": str(e)
+                }
 
     async def send_code(self, phone_number: str):
         try:
-            # Forzamos una nueva sesión en blanco para evitar el AuthKeyUnregisteredError del servidor
             if self.client and self.client.is_connected():
                 await self.client.disconnect()
             

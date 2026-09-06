@@ -28,42 +28,17 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
   // Prevenir renderizado con estado nulo y si está cerrado
   if (!isOpen || !candidate) return null;
 
-  const checkModulo11 = (dni, dv) => {
-    if (dni.length !== 8 || !/^\d+$/.test(dni)) return false;
-    
-    const factores = [3, 2, 7, 6, 5, 4, 3, 2];
-    const equivalencias = [6, 7, 8, 9, 0, 1, 1, 2, 3, 4, 5];
-    
-    let suma = 0;
-    for (let i = 0; i < 8; i++) {
-      suma += parseInt(dni[i]) * factores[i];
-    }
-    
-    const residuo = suma % 11;
-    const expected = equivalencias[residuo].toString();
-    
-    return dv.toString() === expected;
-  };
-
   const handleStartQueue = async (e) => {
     e.preventDefault();
-    if (ticket.length !== 8) {
+    if (!/^\d{8}$/.test(ticket.trim())) {
       setResultType('error');
       setMessage('El DNI debe tener exactamente 8 dígitos numéricos.');
       setStatus('RESULT');
       return;
     }
-    if (controlDigit.length !== 1) {
+    if (controlDigit.trim().length !== 1) {
       setResultType('error');
-      setMessage('El dígito verificador es requerido.');
-      setStatus('RESULT');
-      return;
-    }
-    
-    if (!isRetry && !hasFailedOnce && !checkModulo11(ticket, controlDigit)) {
-      setHasFailedOnce(true);
-      setResultType('error');
-      setMessage('El dígito que ingresaste es incorrecto. Por favor, mira tu DNI físico y escribe el número exacto que aparece al final, después del guion.');
+      setMessage('El dígito verificador es requerido (1 carácter).');
       setStatus('RESULT');
       return;
     }
