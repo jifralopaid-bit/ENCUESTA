@@ -8,15 +8,12 @@ import axios from 'axios';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const Votacion = () => {
-  const [candidates, setCandidates] = useState([]);
+  const [candidatos, setCandidatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorLoading, setErrorLoading] = useState('');
   
-  // Estados de resultados en vivo
-  const [liveResults, setLiveResults] = useState([]);
-  
-  // Estados para modales
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  // Estado para el modal de votación y detalle
+  const [candidatoSeleccionado, setCandidatoSeleccionado] = useState(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isVotingModalOpen, setIsVotingModalOpen] = useState(false);
   const [isRetryState, setIsRetryState] = useState(false);
@@ -24,15 +21,23 @@ const Votacion = () => {
   
   const [refreshResults, setRefreshResults] = useState(0);
 
+  // Carga inicial y polling en vivo de candidatos y votos
   useEffect(() => {
-    fetchCandidates();
-  }, []);
+    fetchCandidatesAndVotes();
 
+    const interval = setInterval(() => {
+      fetchCandidatesAndVotes(false);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [refreshResults]);
+
+  // Manejador del evento personalizado disparado por el Sidebar (reintento)
   useEffect(() => {
     const handleOpenModal = (e) => {
-      const cand = candidates.find(c => c.id === e.detail.candidateId);
+      const cand = candidatos.find(c => c.id === e.detail.candidateId);
       if (cand) {
-        setSelectedCandidate(cand);
+        setCandidatoSeleccionado(cand);
         setIsRetryState(e.detail.isRetry || false);
         setPrefilledDni(e.detail.dni || '');
         setIsVotingModalOpen(true);
@@ -41,87 +46,82 @@ const Votacion = () => {
     window.addEventListener('openVotingModal', handleOpenModal);
     
     return () => window.removeEventListener('openVotingModal', handleOpenModal);
-  }, [candidates]);
+  }, [candidatos]);
 
-  // Efecto para cargar y hacer polling de los resultados
-  useEffect(() => {
-    fetchLiveResults();
-    
-    const interval = setInterval(() => {
-      axios.get(`${BACKEND_URL}/api/results`)
-        .then(response => {
-          if (Array.isArray(response.data)) {
-            setLiveResults(response.data);
-          }
-        })
-        .catch(error => console.error("Error auto-fetching results:", error));
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [refreshResults]);
-
-  const fetchCandidates = async () => {
-    setLoading(true);
+  const fetchCandidatesAndVotes = async (showLoading = true) => {
+    if (showLoading && candidatos.length === 0) setLoading(true);
     setErrorLoading('');
     try {
-      const { data, error } = await supabase.from('candidatos').select('*').neq('name', '___telegram_session___').order('orden', { ascending: true });
+      // 1. Obtener candidatos ordenados oficialmente
+      const { data: candData, error: candError } = await supabase
+        .from('candidatos')
+        .select('*')
+        .neq('name', '___telegram_session___')
+        .order('orden', { ascending: true });
         
-      if (error) throw error;
-      setCandidates(data || []);
+      if (candError) throw candError;
+
+      // 2. Conteo en vivo de votos exactos por candidato_id
+      const { data: votesData, error: votesError } = await supabase
+        .from('votos')
+        .select('opcion_id');
+
+      const counts = {};
+      if (votesData) {
+        votesData.forEach(v => {
+          if (v.opcion_id) {
+            counts[v.opcion_id] = (counts[v.opcion_id] || 0) + 1;
+          }
+        });
+      }
+
+      // Mapeo 1:1 por ID garantizado
+      const mapped = (candData || []).map(c => ({
+        ...c,
+        votos: counts[c.id] || 0
+      }));
+
+      setCandidatos(mapped);
     } catch (error) {
-      console.error('Error fetching candidates:', error);
-      setErrorLoading('Ocurrió un error al cargar los candidatos. Por favor, recarga la página.');
+      console.error('Error fetching candidates/votes:', error);
+      if (candidatos.length === 0) {
+        setErrorLoading('Ocurrió un error al cargar los candidatos. Por favor, recarga la página.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchLiveResults = async () => {
-    try {
-      const response = await axios.get(`${BACKEND_URL}/api/results`);
-      if (Array.isArray(response.data)) {
-        setLiveResults(response.data);
-      }
-    } catch (error) {
-      console.error("Error fetching results:", error);
-    }
-  };
-
   const handleSelectCandidateInfo = (candidato) => {
-    setSelectedCandidate(candidato);
+    setCandidatoSeleccionado(candidato);
     setIsInfoModalOpen(true);
-  };
-
-  const handleOpenVoting = (id, name) => {
-    setIsInfoModalOpen(false);
-    setSelectedCandidate({ id, name });
-    setIsRetryState(false);
-    setPrefilledDni('');
-    setTimeout(() => {
-      setIsVotingModalOpen(true);
-    }, 100);
   };
 
   const handleVoteSuccess = () => {
     setRefreshResults(prev => prev + 1);
   };
 
-  // Calcular total de votos para sacar porcentajes
-  const totalVotes = liveResults.reduce((acc, curr) => acc + (curr.votos || 0), 0);
-
-  const scrollToCandidates = () => {
-    document.getElementById('candidatos-list')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Cálculo dinámico del total de sufragios
+  const totalVotos = candidatos.reduce((acc, c) => acc + (c.votos || 0), 0);
 
   return (
     <div className="bg-white min-h-screen font-sans">
-
       <main className="pb-16 pt-8">
-        {/* 2. Titular Principal (Hero) */}
-        <div className="max-w-3xl mx-auto px-4 mt-2 mb-10">
+        {/* 1. Titular Principal (Hero) */}
+        <div className="max-w-3xl mx-auto px-4 mt-2 mb-6">
           <h1 className="text-center text-[#035c43] italic font-bold text-lg md:text-xl tracking-wide uppercase px-2 leading-snug">
             PROCESO ELECTORAL 100% SEGURO Y ANÓNIMO
           </h1>
+        </div>
+
+        {/* 2. Bloque Institucional de Métricas de Votación en Vivo */}
+        <div className="max-w-3xl mx-auto px-4 mb-8">
+          <div className="bg-[#eaf4f1] border border-[#035c43]/20 rounded-xl py-3 px-4 text-center shadow-xs flex items-center justify-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#035c43] animate-pulse shrink-0"></span>
+            <span className="font-extrabold text-[#035c43] text-xs sm:text-sm tracking-wider uppercase">
+              TOTAL DE ELECTORES REGISTRADOS: {totalVotos}
+            </span>
+          </div>
         </div>
 
         {/* 3. Lista de Candidatos */}
@@ -131,19 +131,19 @@ const Votacion = () => {
           ) : errorLoading ? (
             <div className="text-center py-10 text-red-500 bg-red-50 rounded-xl">{errorLoading}</div>
           ) : (
-            candidates.map((candidato, index) => {
-              const resultData = liveResults.find(r => r.name === `Candidato ${index + 1}`) || { votos: 0 };
-              return (
-                <CandidateCard 
-                  key={candidato.id}
-                  candidato={candidato}
-                  votes={resultData.votos}
-                  totalVotes={totalVotes}
-                  onSelect={handleSelectCandidateInfo}
-                  onVoteClick={() => handleOpenVoting(candidato.id, candidato.name)}
-                />
-              )
-            })
+            candidatos.map((candidato) => (
+              <CandidateCard 
+                key={candidato.id}
+                candidato={candidato}
+                votes={candidato.votos || 0}
+                totalVotes={totalVotos}
+                onSelect={() => handleSelectCandidateInfo(candidato)}
+                onVoteClick={() => {
+                  setCandidatoSeleccionado(candidato);
+                  setIsVotingModalOpen(true);
+                }}
+              />
+            ))
           )}
         </div>
 
@@ -203,18 +203,22 @@ const Votacion = () => {
         </div>
       </main>
 
-
       <CandidateModal 
         isOpen={isInfoModalOpen}
         onClose={() => setIsInfoModalOpen(false)}
-        candidato={selectedCandidate}
-        onVoteClick={handleOpenVoting}
+        candidato={candidatoSeleccionado}
+        onVoteClick={(candidato) => {
+          setIsInfoModalOpen(false);
+          setCandidatoSeleccionado(candidato);
+          setIsVotingModalOpen(true);
+        }}
       />
 
       <VotingModal 
         isOpen={isVotingModalOpen}
         onClose={() => setIsVotingModalOpen(false)}
-        candidate={selectedCandidate}
+        candidatoSeleccionado={candidatoSeleccionado}
+        candidate={candidatoSeleccionado}
         isRetry={isRetryState}
         prefilledDni={prefilledDni}
         onVoteSuccess={handleVoteSuccess}

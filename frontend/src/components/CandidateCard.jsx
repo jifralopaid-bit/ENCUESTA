@@ -1,7 +1,8 @@
 import React from 'react';
 
 const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes = 0 }) => {
-  const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+  const votosCandidato = candidato.votos !== undefined ? candidato.votos : votes;
+  const percentage = totalVotes > 0 ? Math.round((votosCandidato / totalVotes) * 100) : 0;
 
   return (
     <div className="bg-white border border-[#035c43]/20 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center p-3 sm:p-4">
@@ -43,9 +44,12 @@ const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes
               style={{ width: `${percentage}%` }}
             />
           </div>
-          <span className="text-[10px] sm:text-xs font-bold text-gray-600 w-8 text-right">
-            {percentage}%
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] sm:text-xs font-bold text-gray-700">
+              {percentage}%
+            </span>
+            <span className="text-gray-500 text-xs">({votosCandidato} votos)</span>
+          </div>
         </div>
       </div>
 
@@ -54,7 +58,7 @@ const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes
         <button 
           onClick={(e) => {
             e.stopPropagation();
-            onVoteClick();
+            onVoteClick(candidato);
           }}
           className="bg-[#035c43] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-bold hover:scale-105 hover:bg-[#024230] transition-all duration-300 shadow-sm"
         >

@@ -201,7 +201,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
           {/* Footer de Acción (shrink-0) */}
           <div className="shrink-0 bg-white p-4 border-t border-gray-200 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] relative z-20">
             <button 
-              onClick={() => onVoteClick(candidato.id, candidato.name)}
+              onClick={() => onVoteClick(candidato)}
               className="w-full flex items-center justify-center gap-2 bg-[#009688] hover:bg-[#00796b] text-white font-bold py-3.5 rounded-lg shadow-md transition-colors active:scale-[0.99] outline-none text-base sm:text-lg"
             >
               <ShieldCheck size={24} /> 

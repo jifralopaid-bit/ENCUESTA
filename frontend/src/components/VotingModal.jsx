@@ -2,31 +2,47 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, AlertCircle, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import axios from 'axios';
 
-const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni = '', onVoteSuccess }) => {
+const VotingModal = ({ 
+  isOpen, 
+  onClose, 
+  candidate, 
+  candidatoSeleccionado, 
+  isRetry = false, 
+  prefilledDni = '', 
+  onVoteSuccess 
+}) => {
+  const targetCandidate = candidatoSeleccionado || candidate;
+
   const [ticket, setTicket] = useState(prefilledDni || '');
   const [controlDigit, setControlDigit] = useState('');
-  const [hasFailedOnce, setHasFailedOnce] = useState(false);
   const dvRef = useRef(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      // Re-initialize when opened, especially if prefilledDni changes or isRetry changes
-      setTicket(prefilledDni || '');
-      setControlDigit('');
-      setStatus('IDLE');
-      setResultType(null);
-      setHasFailedOnce(false);
-    }
-  }, [isOpen, prefilledDni]);
-  
   // Estados de la máquina: IDLE, PROCESSING, RESULT
   const [status, setStatus] = useState('IDLE'); 
   const [resultType, setResultType] = useState(null); // 'success' o 'error'
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setTicket(prefilledDni || '');
+      setControlDigit('');
+      setStatus('IDLE');
+      setResultType(null);
+    }
+  }, [isOpen, prefilledDni]);
+
   // Prevenir renderizado con estado nulo y si está cerrado
-  if (!isOpen || !candidate) return null;
+  if (!isOpen || !targetCandidate) return null;
+
+  const handleClose = () => {
+    setTicket('');
+    setControlDigit('');
+    setStatus('IDLE');
+    setResultType(null);
+    onClose();
+  };
 
   const handleStartQueue = async (e) => {
     e.preventDefault();
@@ -43,29 +59,71 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       return;
     }
     
-    // Entrar a la cola real llamando a Supabase
+    if (!targetCandidate || !targetCandidate.id) {
+      setResultType('error');
+      setMessage('Error: Candidato no seleccionado.');
+      setStatus('RESULT');
+      return;
+    }
+
     try {
       const userToken = localStorage.getItem('userToken') || crypto.randomUUID();
       localStorage.setItem('userToken', userToken);
 
       setStatus('PROCESSING');
       
-      const { error } = await supabase.from('cola_votos').insert({
-          dni: String(ticket),
-          dv: String(controlDigit),
-          candidato_id: candidate.id,
-          user_token: userToken,
+      // Aseguramos estrictamente que opcion_id sea targetCandidate.id
+      const payload = {
+        dni: ticket.trim(),
+        digito_verificador: controlDigit.trim().toUpperCase(),
+        opcion_id: targetCandidate.id,
+        user_token: userToken,
+        is_retry: isRetry
+      };
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      let apiCalledSuccessfully = false;
+
+      if (backendUrl) {
+        try {
+          const res = await axios.post(`${backendUrl}/api/votar`, payload);
+          if (res.status === 200 || res.status === 202) {
+            apiCalledSuccessfully = true;
+          }
+        } catch (apiErr) {
+          console.warn("Fallo o advertencia al llamar a /api/votar:", apiErr);
+          if (apiErr.response && apiErr.response.data && apiErr.response.data.detail) {
+            setResultType('error');
+            setMessage(apiErr.response.data.detail);
+            setStatus('RESULT');
+            return;
+          }
+        }
+      }
+
+      if (!apiCalledSuccessfully) {
+        // Encolar directamente en Supabase asegurando candidato_id exacto
+        const { error } = await supabase.from('cola_votos').insert({
+          dni: String(payload.dni),
+          dv: String(payload.digito_verificador),
+          candidato_id: payload.opcion_id,
+          user_token: payload.user_token,
           estado: 'pendiente',
           mensaje: 'En cola de validación'
-      });
-      
-      if (error) throw error;
+        });
+        
+        if (error) throw error;
+      }
       
       setResultType('success');
       setMessage('Ticket enviado a la fila de validación.');
       setStatus('RESULT');
       
-      // Cerrar inmediatamente, el sidebar manejará el estado
+      if (onVoteSuccess) {
+        onVoteSuccess();
+      }
+
+      // Cerrar y limpiar tras confirmación
       setTimeout(() => {
         handleClose();
       }, 1500);
@@ -76,14 +134,6 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       setMessage("Error al procesar tu turno. Intenta nuevamente.");
       setStatus('RESULT');
     }
-  };
-
-  const handleClose = () => {
-    setTicket('');
-    setControlDigit('');
-    setStatus('IDLE');
-    setResultType(null);
-    onClose();
   };
 
   const renderContent = () => {
@@ -118,7 +168,7 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
       <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar">
         <div className="mb-4 sm:mb-6 text-center">
           <p className="text-gray-500 text-xs sm:text-sm uppercase tracking-wider font-semibold mb-1">Candidato Seleccionado</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900">{candidate?.name}</h3>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900">{targetCandidate?.name}</h3>
         </div>
 
         {/* Banner de Advertencia */}
@@ -149,9 +199,9 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
                 </label>
                 <input 
                   type="text" 
+                  pattern="\d*"
                   maxLength={8}
-                  required
-                  disabled={isProcessing}
+                  disabled={isRetry}
                   value={ticket}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
@@ -160,23 +210,22 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
                       dvRef.current.focus();
                     }
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none transition-shadow text-lg tracking-wider font-medium disabled:bg-gray-100 disabled:text-gray-400 h-[48px]"
-                  placeholder="Ej: 12345678"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none tracking-widest font-mono text-lg transition-shadow disabled:bg-gray-100 disabled:text-gray-500 h-[48px]"
+                  placeholder="12345678"
+                  autoFocus={!isRetry}
                 />
               </div>
-              
+
               <div className="w-[25%]">
-                <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase">
-                  DV
+                <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase text-center">
+                  D.V.
                 </label>
                 <input 
+                  ref={dvRef}
                   type="text" 
                   maxLength={1}
-                  required
-                  disabled={isProcessing}
                   value={controlDigit}
-                  ref={dvRef}
-                  onChange={(e) => setControlDigit(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => setControlDigit(e.target.value.toUpperCase())}
                   className="w-full px-2 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none uppercase transition-shadow text-lg tracking-wider font-medium text-center disabled:bg-gray-100 disabled:text-gray-400 h-[48px]"
                   placeholder="9"
                 />
@@ -217,14 +266,18 @@ const VotingModal = ({ isOpen, onClose, candidate, isRetry = false, prefilledDni
           exit={{ opacity: 0, scale: 0.95 }}
           className="bg-white rounded-sm w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
         >
-          <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10">
+          {/* Cabecera Roja con botón de cierre absoluto */}
+          <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10 relative">
             <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
               <ShieldCheck size={20} />
               Validación de Identidad
             </h2>
             <button 
+              type="button"
               onClick={handleClose} 
-              className="hover:bg-white/20 p-1 rounded-full transition"
+              className="absolute top-4 right-4 text-white hover:text-gray-200 p-1 rounded-full transition"
+              title="Cerrar modal"
+              aria-label="Cerrar modal"
             >
               <X size={24} />
             </button>

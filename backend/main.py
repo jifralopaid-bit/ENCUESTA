@@ -50,16 +50,19 @@ def normalizar_texto(texto: str) -> str:
 
 async def process_vote_queue():
     """
-    Worker en segundo plano tolerante a fallos (Fault-Tolerant):
-    1. Simula el DV ignorando el cálculo de Módulo 11.
-    2. Valida la identidad ignorando el DV que devuelva el bot:
-       - Edad >= 18 (sino rechaza: 'El elector debe ser mayor de edad (18+).')
-       - Distrito contiene 'LA PECA' sin distinguir mayúsculas ni tildes (sino rechaza: 'El elector no registra domicilio en el distrito de La Peca.')
-    3. Si cumple ambos: registra en tickets_usados, votos y aprueba en cola_votos.
-    4. REGLA DE ORO (Cola de reintento infinito):
-       - Si bot responde explícitamente no existe o [ ✖ ] -> 'rechazado'.
-       - Si ocurre Timeout, desconexión o fallo de red -> VUELVE A 'pendiente' para reintento infinito.
-    5. Cooldown de 5s al final de cada ciclo para no saturar al bot.
+    Worker en segundo plano con Tolerancia a Fallos Real:
+    1. Si el bot se demora, arroja Timeout, error de red o saturación:
+       - El worker hace un continue SIN HACER NINGÚN UPDATE a la tabla cola_votos.
+       - El ticket se queda 100% intacto en estado 'pendiente'.
+    2. SOLO se actualiza a 'rechazado' si el bot confirma explícitamente:
+       - Menor de edad (< 18 años).
+       - Domicilio fuera de La Peca.
+       - DNI no encontrado / inexistente.
+       - Ya votó previamente (doble voto).
+    3. Si cumple los requisitos (>=18 años y La Peca):
+       - Inserta en tickets_usados (ticket: dni).
+       - Inserta en votos (opcion_id: candidato_id).
+       - Actualiza cola_votos a 'aprobado'.
     """
     print("[Worker] Motor de validación asíncrono iniciado correctamente.")
     while True:
@@ -81,13 +84,7 @@ async def process_vote_queue():
             dv = str(ticket.get('dv', ticket.get('digito_verificador', ''))).strip()
             candidato_id = ticket.get('candidato_id')
             
-            print(f"[Worker] Procesando ticket {ticket_id} para DNI {dni}...")
-            
-            # Cambiar a procesando
-            supabase.table('cola_votos').update({
-                "estado": "procesando", 
-                "mensaje": "Validando con JNE/RENIEC..."
-            }).eq('id', ticket_id).execute()
+            print(f"[Worker] Evaluando ticket {ticket_id} para DNI {dni} (candidato_id: {candidato_id})...")
             
             # 1. Verificar si ya votó previamente (en votos o tickets_usados)
             voto_resp = supabase.table('votos').select('id').eq('dni', dni).execute()
@@ -96,12 +93,14 @@ async def process_vote_queue():
                 print(f"[Worker] DNI {dni} ya votó previamente. Rechazando ticket.")
                 supabase.table('cola_votos').update({
                     "estado": "rechazado", 
-                    "mensaje": "Este DNI ya ha emitido un voto."
+                    "mensaje": "Este DNI ya ha emitido un voto en este proceso electoral."
                 }).eq('id', ticket_id).execute()
                 await asyncio.sleep(5)
                 continue
                 
-            # 2. Consultar a Telegram MTProto con tolerancia a fallos
+            # 2. Consultar a Telegram MTProto
+            # NOTA CRÍTICA: NO hacemos UPDATE previo a 'procesando' para que, ante cualquier timeout o demora,
+            # el ticket quede estrictamente intacto en estado 'pendiente'.
             validation = None
             try:
                 validation = await asyncio.wait_for(
@@ -109,36 +108,34 @@ async def process_vote_queue():
                     timeout=35.0
                 )
             except (asyncio.TimeoutError, Exception) as e:
-                # REGLA DE ORO: Si timeout o error de red, NO rechazar el ticket.
-                print(f"[Worker] REGLA DE ORO - Timeout/excepción en Telegram para DNI {dni}: {e}")
-                try:
-                    supabase.table('cola_votos').update({
-                        "estado": "pendiente", 
-                        "mensaje": "Servidores de validación ocupados. Reintentando..."
-                    }).eq('id', ticket_id).execute()
-                except Exception as db_err:
-                    print(f"[Worker] Error revirtiendo ticket a pendiente: {db_err}")
+                print(f"[Worker] Timeout o demora en Telegram para DNI {dni}: {e}")
+                # TOLERANCIA A FALLOS: No se hace ningún UPDATE. El ticket queda intacto en 'pendiente'.
                 await asyncio.sleep(5)
                 continue
 
             status = validation.get("status") if validation else "error"
-            
-            # 3. Tolerancia a fallos: Respuestas no concluyentes vuelven a 'pendiente'
-            if status in ["timeout", "error"]:
-                print(f"[Worker] REGLA DE ORO - Validación no concluyente ({status}): {validation.get('error')}. Reintentando ticket en siguiente ciclo...")
-                try:
-                    supabase.table('cola_votos').update({
-                        "estado": "pendiente", 
-                        "mensaje": "Esperando respuesta oficial de RENIEC. Reintentando..."
-                    }).eq('id', ticket_id).execute()
-                except Exception as db_err:
-                    print(f"[Worker] Error revirtiendo ticket a pendiente: {db_err}")
+            error_text = str(validation.get("error", "")).lower()
+
+            # REGLA 4: Si telegram_service arroja error de tiempo de espera agotado, timeout o saturados:
+            # El worker DEBE hacer continue SIN HACER NINGÚN UPDATE a la tabla cola_votos.
+            if (
+                status in ["timeout", "error"] or
+                "tiempo de espera agotado" in error_text or
+                "timeout" in error_text or
+                "saturados" in error_text or
+                "demoras" in error_text or
+                "anti-spam" in error_text or
+                "ocupado" in error_text
+            ):
+                print(f"[Worker] Tolerancia a fallos: respuesta no concluyente ({validation.get('error')}). Se omite UPDATE. Ticket {ticket_id} permanece intacto en 'pendiente'.")
                 await asyncio.sleep(5)
                 continue
 
-            # 4. Si el bot responde explícitamente que no existe o [ ✖ ] -> DNI Falso -> Rechazar
+            # SOLO se actualiza a 'rechazado' si el bot confirma explícitamente:
+            
+            # Caso A: DNI no encontrado / inexistente
             if status == "not_found":
-                print(f"[Worker] DNI {dni} no encontrado en registros oficiales.")
+                print(f"[Worker] DNI {dni} confirmado como no existente por RENIEC.")
                 supabase.table('cola_votos').update({
                     "estado": "rechazado", 
                     "mensaje": "No se encontró información para los datos ingresados en RENIEC."
@@ -146,16 +143,15 @@ async def process_vote_queue():
                 await asyncio.sleep(5)
                 continue
 
-            # 5. Validación Estricta de Identidad
+            # Caso B: Datos oficiales recibidos: validar edad y distrito
             if status == "success":
-                # NOTA: Se ignora completamente el dígito verificador devuelto por el bot
                 edad = validation.get("edad")
                 distrito = validation.get("distrito", "")
                 raw_text = validation.get("raw", "")
-                
-                # Regla: Edad obligatoria y >= 18
+
+                # 1. Menor de edad
                 if edad is None or edad < 18:
-                    print(f"[Worker] DNI {dni} rechazado: no es mayor de edad (Edad: {edad}).")
+                    print(f"[Worker] DNI {dni} rechazado: menor de edad ({edad}).")
                     supabase.table('cola_votos').update({
                         "estado": "rechazado", 
                         "mensaje": "El elector debe ser mayor de edad (18+)."
@@ -163,12 +159,12 @@ async def process_vote_queue():
                     await asyncio.sleep(5)
                     continue
 
-                # Regla: Distrito obligatorio y debe contener "LA PECA" (sin tildes, mayúsculas o minúsculas)
+                # 2. Distrito fuera de La Peca
                 distrito_norm = normalizar_texto(distrito)
                 raw_norm = normalizar_texto(raw_text)
-                
+
                 if "LA PECA" not in distrito_norm and "LA PECA" not in raw_norm:
-                    print(f"[Worker] DNI {dni} rechazado: no pertenece a La Peca (Distrito: '{distrito}').")
+                    print(f"[Worker] DNI {dni} rechazado: distrito '{distrito}' no es La Peca.")
                     supabase.table('cola_votos').update({
                         "estado": "rechazado", 
                         "mensaje": "El elector no registra domicilio en el distrito de La Peca."
@@ -176,15 +172,13 @@ async def process_vote_queue():
                     await asyncio.sleep(5)
                     continue
 
-                # Cumple ambos (>=18 y "LA PECA"): Registrar voto y ticket usado
-                print(f"[Worker] ¡DNI {dni} aprobado! Registrando voto y guardando ticket...")
+                # 3. Cumple todos los requisitos: Registrar voto
+                print(f"[Worker] ¡DNI {dni} aprobado! Registrando voto para candidato_id={candidato_id}...")
                 try:
-                    # Guardar ticket en tickets_usados (evitar doble voto futuro)
-                    supabase.table('tickets_usados').insert({
-                        'ticket': dni
-                    }).execute()
+                    # Registrar ticket usado para evitar doble voto futuro
+                    supabase.table('tickets_usados').insert({'ticket': dni}).execute()
                     
-                    # Registrar voto en la tabla votos
+                    # Registrar el voto exactamente para el candidato elegido
                     supabase.table('votos').insert({
                         'dni': dni,
                         'opcion_id': candidato_id,
@@ -196,19 +190,19 @@ async def process_vote_queue():
                         "estado": "aprobado", 
                         "mensaje": "¡Tu voto ha sido registrado exitosamente!"
                     }).eq('id', ticket_id).execute()
-                    print(f"[Worker] Voto aprobado exitosamente para DNI {dni}.")
+                    print(f"[Worker] Voto asignado exitosamente al candidato {candidato_id} para DNI {dni}.")
                 except Exception as insert_err:
-                    print(f"[Worker] Error en inserción de voto/ticket: {insert_err}")
+                    print(f"[Worker] Error insertando voto/ticket: {insert_err}")
                     supabase.table('cola_votos').update({
                         "estado": "rechazado", 
                         "mensaje": "Este DNI ya ha emitido un voto previamente."
                     }).eq('id', ticket_id).execute()
 
-            # Cooldown anti-saturación obligatorio de 5s al final de cada iteración
+            # Cooldown de 5s entre cada iteración del worker
             await asyncio.sleep(5)
             
         except Exception as e:
-            print(f"[Worker] Excepción no controlada en bucle: {e}")
+            print(f"[Worker] Excepción en bucle: {e}")
             await asyncio.sleep(5)
 
 @app.on_event("startup")
@@ -224,9 +218,8 @@ async def shutdown_event():
 async def enqueue_vote(request: VoteRequest):
     """
     Endpoint de encolado de votos:
-    - Validación puramente estructural con Regex: DNI = 8 números exactos, DV = 1 carácter.
-    - Se elimina cualquier cálculo matemático de Módulo 11.
-    - El servidor asume que el DV es correcto estructuralmente y lo encola como 'pendiente'.
+    - Validación puramente estructural: DNI = 8 números exactos, DV = 1 carácter.
+    - Se verifica rigurosamente que opcion_id recibido se almacene como candidato_id.
     """
     if supabase is None:
         return JSONResponse(status_code=500, content={"detail": "Error de conexión a la base de datos."})
@@ -242,7 +235,7 @@ async def enqueue_vote(request: VoteRequest):
                 content={"detail": "Formato inválido. El DNI debe tener 8 números exactos y el dígito verificador 1 carácter."}
             )
             
-        # 2. Verificar de inmediato si este DNI ya ha votado
+        # 2. Verificar si este DNI ya ha votado previamente
         try:
             voto_previo = supabase.table('votos').select('id').eq('dni', dni_clean).execute()
             ticket_previo = supabase.table('tickets_usados').select('ticket').eq('ticket', dni_clean).execute()
@@ -254,7 +247,7 @@ async def enqueue_vote(request: VoteRequest):
         except Exception as check_err:
             print(f"Advertencia chequeando duplicado en /api/votar: {check_err}")
 
-        # 3. Encolar ticket en estado 'pendiente'
+        # 3. Encolar ticket asegurando candidato_id exacto
         response = supabase.table('cola_votos').insert({
             'dni': dni_clean,
             'dv': dv_clean.upper(),
@@ -370,23 +363,26 @@ async def get_results():
         return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
         
     try:
-        # Get all candidates
-        cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('id').execute()
+        # Obtener candidatos ordenados por orden oficial
+        cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('orden').execute()
         candidates = cand_response.data or []
         
-        # Get all votes
+        # Obtener todos los votos
         votes_response = supabase.table('votos').select('opcion_id').execute()
         votes = votes_response.data or []
         
-        # Count votes
+        # Conteo exacto por candidate ID
         vote_counts = {}
         for v in votes:
-            vote_counts[v['opcion_id']] = vote_counts.get(v['opcion_id'], 0) + 1
+            opc = v.get('opcion_id')
+            if opc:
+                vote_counts[opc] = vote_counts.get(opc, 0) + 1
             
         results = []
-        for i, c in enumerate(candidates):
+        for c in candidates:
             results.append({
-                "name": f"Candidato {i+1}",
+                "id": c['id'],
+                "name": c['name'],
                 "votos": vote_counts.get(c['id'], 0)
             })
             
