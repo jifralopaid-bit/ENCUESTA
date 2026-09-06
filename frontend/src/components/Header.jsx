@@ -16,10 +16,12 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
       <div className="flex justify-between items-center px-4 py-3 max-w-5xl mx-auto">
         {/* Lado Izquierdo */}
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-[#035c43] flex items-center justify-center text-white font-bold italic text-sm shadow-sm">
-            LP
-          </div>
+        <Link to="/" className="flex items-center gap-3 group">
+          <img 
+            src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787301328/image-removebg-preview.png" 
+            alt="Logo La Peca Decide" 
+            className="w-10 h-10 object-contain group-hover:scale-105 transition-transform"
+          />
           <span className="font-bold text-gray-900 text-lg sm:text-xl tracking-tight">
             La Peca <span className="text-[#035c43]">Decide</span>
           </span>

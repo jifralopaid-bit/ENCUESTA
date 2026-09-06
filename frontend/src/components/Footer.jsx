@@ -7,10 +7,12 @@ const Footer = () => {
       <div className="max-w-5xl mx-auto px-4">
         {/* Sección Superior */}
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-white rounded-full flex shrink-0 items-center justify-center text-[#035c43] font-black italic text-lg shadow-lg border-2 border-[#024230]">
-              LP
-            </div>
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787301328/image-removebg-preview.png" 
+              alt="Logo La Peca Decide" 
+              className="w-12 h-12 object-contain bg-white/10 rounded-lg p-1"
+            />
             <span className="font-bold text-white text-xl tracking-tight">
               La Peca Decide
             </span>

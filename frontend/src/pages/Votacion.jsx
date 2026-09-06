@@ -155,17 +155,49 @@ const Votacion = () => {
             </h2>
             <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-10">
               {/* JNE */}
-              <div className="flex flex-col items-center grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
-                <span className="font-black text-gray-800 text-xl sm:text-2xl tracking-tighter">JNE</span>
-              </div>
+              <a 
+                href="https://votoinformado.jne.gob.pe/candidatos/resultados?departamento=Amazonas&depCode=01&provincia=Bagua&provCode=02&distrito=La+Peca&distCode=01" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                title="Voto Informado - JNE"
+                className="flex items-center grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300 hover:scale-105"
+              >
+                <img 
+                  src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787690626/logo-JNE.png" 
+                  alt="JNE" 
+                  className="h-10 sm:h-12 w-auto object-contain"
+                />
+              </a>
+
               {/* RENIEC */}
-              <div className="flex flex-col items-center border-l border-r border-gray-300 px-6 sm:px-10 grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
-                <span className="font-black text-gray-800 text-xl sm:text-2xl tracking-tighter">RENIEC</span>
-              </div>
+              <a 
+                href="https://cel.reniec.gob.pe/celweb/index.html" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                title="RENIEC"
+                className="flex items-center border-l border-r border-gray-300 px-6 sm:px-10 grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300 hover:scale-105"
+              >
+                <img 
+                  src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1788724920/reniec-logo-png_seeklogo-192416.png" 
+                  alt="RENIEC" 
+                  className="h-10 sm:h-12 w-auto object-contain"
+                />
+              </a>
+
               {/* ONPE */}
-              <div className="flex flex-col items-center grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
-                <span className="font-black text-gray-800 text-xl sm:text-2xl tracking-tighter">ONPE</span>
-              </div>
+              <a 
+                href="https://consultaelectoral.onpe.gob.pe/inicio" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                title="ONPE"
+                className="flex items-center grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-300 hover:scale-105"
+              >
+                <img 
+                  src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1788724984/ONPE.png" 
+                  alt="ONPE" 
+                  className="h-10 sm:h-12 w-auto object-contain"
+                />
+              </a>
             </div>
           </div>
         </div>
