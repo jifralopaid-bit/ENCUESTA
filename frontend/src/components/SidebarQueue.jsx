@@ -363,7 +363,7 @@ const SidebarQueue = () => {
                         className="mt-1 text-[11px] font-bold text-red-700 bg-red-100/90 hover:bg-red-200/90 py-2 px-3 rounded-lg w-full text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <ShieldAlert size={14} />
-                        ¿No fuiste tú? Solicitar revocación
+                        ¿No fuiste tú? Solicitar Revocación
                       </button>
                     )}
 
