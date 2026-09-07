@@ -11,6 +11,12 @@ import asyncio
 import re
 import unicodedata
 import secrets
+import json
+import hashlib
+import io
+import base64
+from cryptography.fernet import Fernet
+import pandas as pd
 
 load_dotenv()
 
@@ -25,6 +31,16 @@ app.add_middleware(
 )
 
 validator = TelegramValidator()
+
+# --- Configuración de Encriptación ---
+_raw_key = os.environ.get("ENCRYPTION_KEY", "uO6vO02Q7aI92nZb3pA72t1VwK6zN8X_9-8wD3Yn-A=") 
+try:
+    FERNET_KEY = base64.urlsafe_b64encode(_raw_key.encode().ljust(32)[:32])
+    cipher_suite = Fernet(FERNET_KEY)
+except Exception:
+    FERNET_KEY = Fernet.generate_key()
+    cipher_suite = Fernet(FERNET_KEY)
+# -------------------------------------
 
 class VoteRequest(BaseModel):
     dni: str
@@ -51,23 +67,9 @@ def normalizar_texto(texto: str) -> str:
 
 async def process_vote_queue():
     """
-    Worker en segundo plano con Tolerancia a Fallos y Aprobación Exclusiva:
-    1. Erradicación del Dígito Verificador (DV):
-       - El DV es una simulación estructural y JAMÁS es motivo de comparación ni rechazo.
-       - No se compara ningún DV del bot ni de la base de datos.
-    2. Criterios de Aprobación Exclusivos:
-       Una vez que el bot retorna exitosamente la ficha de RENIEC:
-       a) Edad: Debe ser >= 18 años.
-       b) Ubicación: El distrito debe contener 'LA PECA'.
-       - Si cumple ambas, el voto se aprueba.
-       - Si falla alguna, se rechaza por ese motivo específico (menor de edad o distrito no válido).
-    3. Tolerancia a Fallos Confirmada:
-       - Si ocurre un TimeoutError, demora o el bot no responde: el estado del ticket NO se altera
-         (permanece estrictamente en 'pendiente') y se hace 'continue' para reintentarlo en la siguiente vuelta.
-    4. DNI no encontrado:
-       - Si el bot confirma explícitamente que el DNI no existe en RENIEC, se rechaza.
+    Worker en segundo plano con validación LOCAL, masiva y encriptada.
     """
-    print("[Worker] Motor de validación asíncrono iniciado correctamente.")
+    print("[Worker] Motor de validación asíncrono LOCAL iniciado.")
     while True:
         try:
             if supabase is None:
@@ -89,123 +91,90 @@ async def process_vote_queue():
             
             print(f"[Worker] Evaluando ticket {ticket_id} para DNI {dni} (candidato_id: {candidato_id})...")
             
-            # 1. Verificar si ya votó previamente (en votos o tickets_usados)
+            # --- VALIDACIÓN LOCAL EN PADRÓN ---
+            dni_hash = hashlib.sha256(dni.encode()).hexdigest()
+            
+            padron_res = supabase.table('padron_electoral').select('*').eq('dni_hash', dni_hash).execute()
+            
+            if not padron_res.data or len(padron_res.data) == 0:
+                print(f"[Worker] DNI {dni} (hash: {dni_hash[:8]}...) NO figura en el padrón local.")
+                supabase.table('cola_votos').update({
+                    "estado": "rechazado", 
+                    "mensaje": "Tu DNI no figura en el padrón electoral de La Peca."
+                }).eq('id', ticket_id).execute()
+                await asyncio.sleep(1)
+                continue
+                
+            ciudadano = padron_res.data[0]
+            
+            if ciudadano.get('ya_voto'):
+                print(f"[Worker] DNI {dni} ya votó previamente (padrón). Rechazando ticket.")
+                supabase.table('cola_votos').update({
+                    "estado": "rechazado", 
+                    "mensaje": "Este DNI ya ha emitido su voto en el proceso electoral."
+                }).eq('id', ticket_id).execute()
+                await asyncio.sleep(1)
+                continue
+                
+            # 1. Verificar si ya votó previamente (en votos o tickets_usados por seguridad extra)
             voto_resp = supabase.table('votos').select('id').eq('dni', dni).execute()
-            ticket_resp = supabase.table('tickets_usados').select('ticket').eq('ticket', dni).execute()
-            if (voto_resp.data and len(voto_resp.data) > 0) or (ticket_resp.data and len(ticket_resp.data) > 0):
-                print(f"[Worker] DNI {dni} ya votó previamente. Rechazando ticket.")
+            if voto_resp.data and len(voto_resp.data) > 0:
+                print(f"[Worker] DNI {dni} ya votó previamente (votos). Rechazando ticket.")
                 supabase.table('cola_votos').update({
                     "estado": "rechazado", 
                     "mensaje": "Este DNI ya ha emitido un voto en este proceso electoral."
                 }).eq('id', ticket_id).execute()
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 continue
-                
-            # 2. Consultar a Telegram MTProto
-            # NOTA CRÍTICA: NO hacemos UPDATE previo a 'procesando' para que, ante cualquier timeout o demora,
-            # el ticket quede estrictamente intacto en estado 'pendiente'.
-            validation = None
+
+            # NOTA: La validación de Telegram MTProto está comentada como fallback.
+            # ==============================================================
+            # try:
+            #     validation = await asyncio.wait_for(validator.consultar_dni(dni), timeout=35.0)
+            # except Exception: pass
+            # ==============================================================
+
+            # 3. Cumple todos los requisitos: Registrar voto
+            print(f"[Worker] ¡DNI {dni} aprobado en Padrón Local! Registrando voto para candidato_id={candidato_id}...")
             try:
-                validation = await asyncio.wait_for(
-                    validator.consultar_dni(dni),
-                    timeout=35.0
-                )
-            except (asyncio.TimeoutError, Exception) as e:
-                print(f"[Worker] Timeout o demora en Telegram para DNI {dni}: {e}")
-                # TOLERANCIA A FALLOS: No se hace ningún UPDATE. El ticket queda intacto en 'pendiente'.
-                await asyncio.sleep(5)
-                continue
-
-            status = validation.get("status") if validation else "error"
-            error_text = str(validation.get("error", "")).lower()
-
-            # REGLA 4: Si telegram_service arroja error de tiempo de espera agotado, timeout o saturados:
-            # El worker DEBE hacer continue SIN HACER NINGÚN UPDATE a la tabla cola_votos.
-            if (
-                status in ["timeout", "error"] or
-                "tiempo de espera agotado" in error_text or
-                "timeout" in error_text or
-                "saturados" in error_text or
-                "demoras" in error_text or
-                "anti-spam" in error_text or
-                "ocupado" in error_text
-            ):
-                print(f"[Worker] Tolerancia a fallos: respuesta no concluyente ({validation.get('error')}). Se omite UPDATE. Ticket {ticket_id} permanece intacto en 'pendiente'.")
-                await asyncio.sleep(5)
-                continue
-
-            # SOLO se actualiza a 'rechazado' si el bot confirma explícitamente:
-            
-            # Caso A: DNI no encontrado / inexistente
-            if status == "not_found":
-                print(f"[Worker] DNI {dni} confirmado como no existente por RENIEC.")
+                # Actualizar el padrón primero
+                from datetime import datetime, timezone
+                now_iso = datetime.now(timezone.utc).isoformat()
+                
+                supabase.table('padron_electoral').update({
+                    "ya_voto": True,
+                    "fecha_voto": now_iso
+                }).eq('dni_hash', dni_hash).execute()
+                
+                # Registrar ticket usado para evitar doble voto futuro (compatibilidad)
+                supabase.table('tickets_usados').insert({'ticket': dni}).execute()
+                
+                # Registrar el voto exactamente para el candidato elegido
+                # (Ya no tenemos edad ni género precisos del bot, podemos extraer del padrón si los agregáramos, 
+                # o poner por defecto para estadísticas).
+                supabase.table('votos').insert({
+                    'dni': dni,
+                    'opcion_id': candidato_id,
+                    'digito_verificador': dv,
+                    'edad': 30, # Default temporal para que no falle estadísticas
+                    'genero': 'NO_ESPECIFICADO'
+                }).execute()
+                
+                # Actualizar estado en la cola a aprobado
+                supabase.table('cola_votos').update({
+                    "estado": "aprobado", 
+                    "mensaje": "¡Tu voto ha sido registrado exitosamente!"
+                }).eq('id', ticket_id).execute()
+                print(f"[Worker] Voto asignado exitosamente al candidato {candidato_id} para DNI {dni}.")
+            except Exception as insert_err:
+                print(f"[Worker] Error insertando voto/ticket: {insert_err}")
                 supabase.table('cola_votos').update({
                     "estado": "rechazado", 
-                    "mensaje": "No se encontró información para los datos ingresados en RENIEC."
+                    "mensaje": "Ocurrió un error registrando tu voto. Intenta nuevamente."
                 }).eq('id', ticket_id).execute()
-                await asyncio.sleep(5)
-                continue
 
-            # Caso B: Datos oficiales recibidos: validar edad y distrito
-            if status == "success":
-                edad = validation.get("edad")
-                genero = validation.get("genero")
-                distrito = validation.get("distrito", "")
-                raw_text = validation.get("raw", "")
-
-                # 1. Menor de edad
-                if edad is None or edad < 18:
-                    print(f"[Worker] DNI {dni} rechazado: menor de edad ({edad}).")
-                    supabase.table('cola_votos').update({
-                        "estado": "rechazado", 
-                        "mensaje": "El elector debe ser mayor de edad (18+)."
-                    }).eq('id', ticket_id).execute()
-                    await asyncio.sleep(5)
-                    continue
-
-                # 2. Distrito fuera de La Peca
-                distrito_norm = normalizar_texto(distrito)
-                raw_norm = normalizar_texto(raw_text)
-
-                if "LA PECA" not in distrito_norm and "LA PECA" not in raw_norm:
-                    print(f"[Worker] DNI {dni} rechazado: distrito '{distrito}' no es La Peca.")
-                    supabase.table('cola_votos').update({
-                        "estado": "rechazado", 
-                        "mensaje": "El elector no registra domicilio en el distrito de La Peca."
-                    }).eq('id', ticket_id).execute()
-                    await asyncio.sleep(5)
-                    continue
-
-                # 3. Cumple todos los requisitos: Registrar voto
-                print(f"[Worker] ¡DNI {dni} aprobado! Registrando voto para candidato_id={candidato_id}...")
-                try:
-                    # Registrar ticket usado para evitar doble voto futuro
-                    supabase.table('tickets_usados').insert({'ticket': dni}).execute()
-                    
-                    # Registrar el voto exactamente para el candidato elegido
-                    supabase.table('votos').insert({
-                        'dni': dni,
-                        'opcion_id': candidato_id,
-                        'digito_verificador': dv,
-                        'edad': edad,
-                        'genero': genero
-                    }).execute()
-                    
-                    # Actualizar estado en la cola a aprobado
-                    supabase.table('cola_votos').update({
-                        "estado": "aprobado", 
-                        "mensaje": "¡Tu voto ha sido registrado exitosamente!"
-                    }).eq('id', ticket_id).execute()
-                    print(f"[Worker] Voto asignado exitosamente al candidato {candidato_id} para DNI {dni}.")
-                except Exception as insert_err:
-                    print(f"[Worker] Error insertando voto/ticket: {insert_err}")
-                    supabase.table('cola_votos').update({
-                        "estado": "rechazado", 
-                        "mensaje": "Este DNI ya ha emitido un voto previamente."
-                    }).eq('id', ticket_id).execute()
-
-            # Cooldown de 5s entre cada iteración del worker
-            await asyncio.sleep(5)
+            # Cooldown de 1s entre cada iteración del worker para mayor velocidad
+            await asyncio.sleep(1)
             
         except Exception as e:
             print(f"[Worker] Excepción en bucle: {e}")
@@ -534,3 +503,87 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+@app.post("/api/admin/padron/upload")
+async def upload_padron(file: UploadFile = File(...)):
+    if not file.filename.endswith(('.csv', '.xlsx')):
+        return JSONResponse(status_code=400, content={"detail": "Solo se permiten archivos .csv o .xlsx"})
+        
+    try:
+        contents = await file.read()
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+            
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        
+        batch = []
+        for _, row in df.iterrows():
+            dni_raw = str(row.get('DNI', '')).strip().split('.')[0]
+            if not dni_raw or len(dni_raw) < 8:
+                continue
+            
+            nombre = str(row.get('NOMBRE', row.get('NOMBRES', ''))).strip()
+            ap_pat = str(row.get('APELLIDO PATERNO', '')).strip()
+            ap_mat = str(row.get('APELLIDO MATERNO', '')).strip()
+            
+            nombre_completo = f"{nombre} {ap_pat} {ap_mat}".strip()
+            if not nombre_completo:
+                nombre_completo = "SIN NOMBRE"
+            
+            dni_hash = hashlib.sha256(dni_raw.encode()).hexdigest()
+            datos = {"dni": dni_raw, "nombres": nombre_completo}
+            
+            datos_json = json.dumps(datos)
+            datos_encriptados = cipher_suite.encrypt(datos_json.encode()).decode('utf-8')
+            
+            batch.append({
+                "dni_hash": dni_hash,
+                "datos_encriptados": datos_encriptados,
+                "ya_voto": False
+            })
+            
+        total_inserted = 0
+        for i in range(0, len(batch), 500):
+            chunk = batch[i:i+500]
+            if chunk:
+                # Upsert is supported in Supabase using on_conflict
+                supabase.table('padron_electoral').upsert(chunk, on_conflict='dni_hash').execute()
+                total_inserted += len(chunk)
+                
+        return {"message": "Padrón cargado exitosamente", "registros_procesados": total_inserted}
+    except Exception as e:
+        print(f"Error cargando padrón: {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Error al procesar el archivo: {str(e)}"})
+
+@app.get("/api/admin/padron/audit")
+async def get_padron_audit():
+    try:
+        res = supabase.table('padron_electoral').select('datos_encriptados, fecha_voto').eq('ya_voto', True).execute()
+        resultados = []
+        for row in res.data:
+            try:
+                enc_data = row['datos_encriptados']
+                if isinstance(enc_data, str) and enc_data.startswith('\\x'):
+                    enc_data = bytes.fromhex(enc_data[2:])
+                elif isinstance(enc_data, str):
+                    enc_data = enc_data.encode('utf-8')
+                    
+                decrypted = cipher_suite.decrypt(enc_data)
+                datos = json.loads(decrypted.decode('utf-8'))
+                
+                resultados.append({
+                    "dni": datos.get("dni"),
+                    "nombres": datos.get("nombres"),
+                    "fecha_voto": row.get("fecha_voto")
+                })
+            except Exception as e:
+                print(f"Error desencriptando registro: {e}")
+                
+        # Ordenar por fecha_voto descendente (más recientes primero)
+        resultados.sort(key=lambda x: x.get('fecha_voto') or '', reverse=True)
+        return resultados
+    except Exception as e:
+        print(f"Error auditoria: {e}")
+        return JSONResponse(status_code=500, content={"detail": "Error obteniendo auditoría"})

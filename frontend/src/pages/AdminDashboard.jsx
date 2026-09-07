@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import TelegramConfig from '../components/TelegramConfig';
 import RevocacionesPanel from './RevocacionesPanel';
 import CentroComando from '../components/CentroComando';
+import PadronElectoralPanel from './PadronElectoralPanel';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -348,6 +349,12 @@ const AdminDashboard = () => {
             Gestión de Candidatos
           </button>
           <button 
+            onClick={() => setActiveTab('padron')}
+            className={`py-3 px-4 font-semibold text-sm flex items-center gap-2 ${activeTab === 'padron' ? 'border-b-2 border-emerald-600 text-emerald-800' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Gestión del Padrón Electoral
+          </button>
+          <button 
             onClick={() => setActiveTab('revocaciones')}
             className={`py-3 px-4 font-semibold text-sm ${activeTab === 'revocaciones' ? 'border-b-2 border-emerald-600 text-emerald-800' : 'text-gray-500 hover:text-gray-700'}`}
           >
@@ -683,6 +690,10 @@ const AdminDashboard = () => {
         </>
         )}
         
+        {activeTab === 'padron' && (
+          <PadronElectoralPanel />
+        )}
+
         {activeTab === 'revocaciones' && (
           <RevocacionesPanel />
         )}
