@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes = 0, hiddenResults = false }) => {
+const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes = 0 }) => {
   const votosCandidato = candidato.votos !== undefined ? candidato.votos : votes;
   const percentage = totalVotes > 0 ? Math.round((votosCandidato / totalVotes) * 100) : 0;
 
@@ -38,22 +38,20 @@ const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes
           {candidato.name}
         </h3>
         
-        {!hiddenResults && (
-          <div className="flex items-center gap-2 mt-1.5">
-            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden shadow-inner">
-              <div 
-                className="bg-gradient-to-r from-[#035c43] to-[#128a67] h-full rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] sm:text-xs font-bold text-gray-700">
-                {percentage}%
-              </span>
-              <span className="text-gray-500 text-xs">({votosCandidato} votos)</span>
-            </div>
+        <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden shadow-inner">
+            <div 
+              className="bg-gradient-to-r from-[#035c43] to-[#128a67] h-full rounded-full transition-all duration-1000 ease-out"
+              style={{ width: `${percentage}%` }}
+            />
           </div>
-        )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] sm:text-xs font-bold text-gray-700">
+              {percentage}%
+            </span>
+            <span className="text-gray-500 text-xs">({votosCandidato} votos)</span>
+          </div>
+        </div>
       </div>
 
       {/* Derecha (Botón de Acción) */}

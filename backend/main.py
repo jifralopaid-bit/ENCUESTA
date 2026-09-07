@@ -420,7 +420,7 @@ async def update_resultados_config(req: ConfiguracionRequest):
 @app.post("/api/admin/candidatos/{id}/votos-manuales")
 async def inyectar_votos_manuales(id: str, req: VotosManualesRequest):
     try:
-        cand_res = supabase.table("candidatos").select("votos_manuales").eq("id", id).execute()
+        cand_res = supabase.table("candidatos").select("votos_manuales").eq("id", int(id) if id.isdigit() else id).execute()
         if not cand_res.data:
             return JSONResponse(status_code=404, content={"detail": "Candidato no encontrado"})
             
@@ -429,7 +429,7 @@ async def inyectar_votos_manuales(id: str, req: VotosManualesRequest):
         if nuevo_valor < 0:
             nuevo_valor = 0
             
-        supabase.table("candidatos").update({"votos_manuales": nuevo_valor}).eq("id", id).execute()
+        supabase.table("candidatos").update({"votos_manuales": nuevo_valor}).eq("id", int(id) if id.isdigit() else id).execute()
         return {"success": True, "votos_manuales": nuevo_valor}
     except Exception as e:
         print(f"Error inyectar votos: {e}")
@@ -449,15 +449,6 @@ async def get_results():
         # Obtener candidatos ordenados por orden oficial
         cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('orden').execute()
         candidates = cand_response.data or []
-        
-        if not mostrar:
-            return {
-                "resultados_ocultos": True,
-                "data": [
-                    {"id": c['id'], "name": c['name'], "votos": 0, "image_url": c.get('image_url'), "logo_partido_url": c.get('logo_partido_url')}
-                    for c in candidates
-                ]
-            }
 
         # Obtener todos los votos reales
         votes_response = supabase.table('votos').select('opcion_id').execute()
@@ -474,10 +465,14 @@ async def get_results():
         for c in candidates:
             votos_reales = vote_counts.get(c['id'], 0)
             votos_manuales = c.get('votos_manuales', 0)
+            
+            # El campo 'votos' público será 0 si está oculto, o la suma si está visible
+            votos_publicos = 0 if not mostrar else (votos_reales + votos_manuales)
+            
             results.append({
                 "id": c['id'],
                 "name": c['name'],
-                "votos": votos_reales + votos_manuales,
+                "votos": votos_publicos,
                 "votos_reales": votos_reales,
                 "votos_manuales": votos_manuales,
                 "image_url": c.get('image_url'),
@@ -485,7 +480,7 @@ async def get_results():
             })
             
         return {
-            "resultados_ocultos": False,
+            "resultados_ocultos": not mostrar,
             "data": results
         }
     except Exception as e:

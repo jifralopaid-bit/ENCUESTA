@@ -48,7 +48,7 @@ const CentroComando = () => {
     }
   };
 
-  const handleManualVotes = async (candidatoId, amount) => {
+  const handleVotoManual = async (candidatoId, amount) => {
     try {
       await axios.post(`${BACKEND_URL}/api/admin/candidatos/${candidatoId}/votos-manuales`, {
         cantidad: amount
@@ -114,13 +114,13 @@ const CentroComando = () => {
                   <td className="px-4 py-3 text-center font-bold text-emerald-700 text-lg">{cand.votos}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleManualVotes(cand.id, -1)} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition" title="Restar 1">
+                      <button onClick={() => handleVotoManual(cand.id, -1)} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition" title="Restar 1">
                         <Minus size={16} />
                       </button>
-                      <button onClick={() => handleManualVotes(cand.id, 1)} className="p-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition" title="Sumar 1">
+                      <button onClick={() => handleVotoManual(cand.id, 1)} className="p-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition" title="Sumar 1">
                         <Plus size={16} />
                       </button>
-                      <button onClick={() => handleManualVotes(cand.id, 50)} className="px-2 py-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-xs font-bold transition" title="Sumar 50">
+                      <button onClick={() => handleVotoManual(cand.id, 50)} className="px-2 py-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-xs font-bold transition" title="Sumar 50">
                         +50
                       </button>
                     </div>
