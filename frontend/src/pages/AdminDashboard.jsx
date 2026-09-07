@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2, XCircle, Loader2, RefreshCw, CheckCircle, ExternalLink, GripHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { maskUrl } from '../utils/maskUrl';
 import TelegramConfig from '../components/TelegramConfig';
 import RevocacionesPanel from './RevocacionesPanel';
 import CentroComando from '../components/CentroComando';
@@ -412,7 +413,7 @@ const AdminDashboard = () => {
                     <div className="absolute top-2 left-2 text-gray-300">
                       <GripHorizontal size={18} />
                     </div>
-                    <img src={c.image_url} alt={c.name} className="w-16 h-16 object-cover rounded-full mb-3 shadow-sm pointer-events-none" />
+                    <img src={maskUrl(c.image_url)} alt={c.name} className="w-16 h-16 object-cover rounded-full mb-3 shadow-sm pointer-events-none" />
                     <h4 className="font-bold text-gray-900 text-sm mb-1">{c.name}</h4>
                     <p className="text-xs text-gray-500 line-clamp-2 mb-4">{c.proposal}</p>
                     

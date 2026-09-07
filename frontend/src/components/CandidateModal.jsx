@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileText, MapPin, User, Download, ShieldCheck } from 'lucide-react';
+import { X, FileText, MapPin, User, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { maskUrl } from '../utils/maskUrl';
 
 const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
   const [regidores, setRegidores] = useState([]);
@@ -48,7 +49,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
             <div className="flex items-center gap-4">
               {candidato.logo_partido_url ? (
                 <div className="w-12 h-12 rounded-full border border-gray-200 p-1 flex-shrink-0">
-                  <img src={candidato.logo_partido_url} alt="Logo" className="w-full h-full object-contain rounded-full" />
+                  <img src={maskUrl(candidato.logo_partido_url)} alt="Logo" className="w-full h-full object-contain rounded-full" />
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -73,17 +74,19 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
           <div className="shrink-0 bg-white px-6 py-3 border-b border-gray-200 flex flex-wrap gap-3 justify-center shadow-sm relative z-10">
             {candidato.plan_gobierno_pdf_url && (
               <a 
-                href={candidato.plan_gobierno_pdf_url}
+                href={maskUrl(candidato.plan_gobierno_pdf_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 text-xs sm:text-sm font-semibold rounded-full transition-colors"
               >
-                Plan de Gobierno
+                <FileText size={16} /> Plan de Gobierno
               </a>
             )}
-            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 text-xs sm:text-sm font-semibold rounded-full transition-colors cursor-pointer">
-              Resumen de Plan de Gobierno
-            </div>
+            {candidato.proposal && (
+              <a href="#vision-propuesta" className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-semibold rounded-full transition-colors cursor-pointer">
+                Resumen de Plan de Gobierno
+              </a>
+            )}
           </div>
 
           {/* Área de Contenido con Scroll (flex-1 overflow-y-auto) */}
@@ -96,7 +99,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
                     {candidato.image_url ? (
-                      <img src={candidato.image_url} alt={candidato.name} className="w-full h-full object-cover" />
+                      <img src={maskUrl(candidato.image_url)} alt={candidato.name} className="w-full h-full object-cover" />
                     ) : (
                       <User size={32} className="text-gray-400" />
                     )}
@@ -119,7 +122,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
 
                 {candidato.hoja_vida_pdf_url && (
                   <a 
-                    href={candidato.hoja_vida_pdf_url}
+                    href={maskUrl(candidato.hoja_vida_pdf_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-sm font-medium transition-colors w-full sm:w-auto justify-center"
@@ -130,12 +133,14 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
               </div>
               
               {/* Visión / Propuesta */}
-              <div className="px-5 py-4 bg-gray-50 border-t border-gray-100">
-                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Visión / Propuesta Principal</h4>
-                <p className="text-sm text-gray-700 leading-relaxed italic">
-                  "{candidato.proposal}"
-                </p>
-              </div>
+              {candidato.proposal && (
+                <div id="vision-propuesta" className="px-5 py-4 bg-gray-50 border-t border-gray-100">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Visión / Propuesta Principal</h4>
+                  <p className="text-sm text-gray-700 leading-relaxed italic">
+                    "{candidato.proposal}"
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Lista de Regidores */}
@@ -155,7 +160,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                         <span className="text-gray-400 font-bold w-4 text-center">{index + 1}</span>
                         <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {reg.image_url ? (
-                            <img src={reg.image_url} alt={reg.nombre} className="w-full h-full object-cover" />
+                            <img src={maskUrl(reg.image_url)} alt={reg.nombre} className="w-full h-full object-cover" />
                           ) : (
                             <User size={24} className="text-gray-400" />
                           )}
@@ -178,7 +183,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
 
                       {reg.hoja_vida_pdf_url && (
                         <a 
-                          href={reg.hoja_vida_pdf_url}
+                          href={maskUrl(reg.hoja_vida_pdf_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-[13px] font-medium transition-colors w-full sm:w-auto justify-center ml-8 sm:ml-0"

@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/archivo/:path*",
+      "destination": "https://vexjqvxxsyiuybxetlnq.supabase.co/storage/v1/object/public/:path*"
+    },
+    {
       "source": "/imagen/:path*",
       "destination": "https://vexjqvxxsyiuybxetlnq.supabase.co/storage/v1/object/public/archivos_electorales/:path*"
     },

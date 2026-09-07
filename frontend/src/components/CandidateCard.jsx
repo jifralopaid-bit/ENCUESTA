@@ -1,4 +1,5 @@
 import React from 'react';
+import { maskUrl } from '../utils/maskUrl';
 
 const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes = 0 }) => {
   const votosCandidato = candidato.votos !== undefined ? candidato.votos : votes;
@@ -12,13 +13,13 @@ const CandidateCard = ({ candidato, onSelect, onVoteClick, votes = 0, totalVotes
         onClick={() => onSelect(candidato)}
       >
         <img 
-          src={candidato.image_url || 'https://via.placeholder.com/150'} 
+          src={maskUrl(candidato.image_url) || 'https://via.placeholder.com/150'} 
           alt={candidato.name}
           className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ring-white z-10 transition-transform group-hover:scale-105 bg-gray-100"
         />
         {candidato.logo_partido_url ? (
            <img 
-             src={candidato.logo_partido_url} 
+             src={maskUrl(candidato.logo_partido_url)} 
              alt="Partido"
              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-contain ring-2 ring-white z-20 bg-white transition-transform group-hover:scale-105"
            />
