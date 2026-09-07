@@ -512,21 +512,32 @@ async def upload_padron(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(contents))
+            # sep=None y engine='python' auto-detecta si es coma o punto y coma
+            df = pd.read_csv(io.BytesIO(contents), sep=None, engine='python', dtype=str)
         else:
-            df = pd.read_excel(io.BytesIO(contents))
+            df = pd.read_excel(io.BytesIO(contents), dtype=str)
             
-        df.columns = [str(c).strip().upper() for c in df.columns]
+        # Limpiar nombres de columnas (quitar espacios, BOM y pasar a mayúsculas)
+        df.columns = [str(c).replace('\ufeff', '').replace('\xef\xbb\xbf', '').strip().upper() for c in df.columns]
         
+        # Verificar si existe la columna DNI
+        if 'DNI' not in df.columns:
+            return JSONResponse(status_code=400, content={"detail": f"No se encontró la columna 'DNI'. Columnas detectadas: {', '.join(df.columns)}"})
+
         batch = []
         for _, row in df.iterrows():
             dni_raw = str(row.get('DNI', '')).strip().split('.')[0]
-            if not dni_raw or len(dni_raw) < 8:
+            if not dni_raw or len(dni_raw) < 8 or dni_raw.lower() == 'nan':
                 continue
             
             nombre = str(row.get('NOMBRE', row.get('NOMBRES', ''))).strip()
             ap_pat = str(row.get('APELLIDO PATERNO', '')).strip()
             ap_mat = str(row.get('APELLIDO MATERNO', '')).strip()
+            
+            # Si el CSV dice 'nan', lo ignoramos
+            if nombre.lower() == 'nan': nombre = ''
+            if ap_pat.lower() == 'nan': ap_pat = ''
+            if ap_mat.lower() == 'nan': ap_mat = ''
             
             nombre_completo = f"{nombre} {ap_pat} {ap_mat}".strip()
             if not nombre_completo:
@@ -544,12 +555,15 @@ async def upload_padron(file: UploadFile = File(...)):
                 "ya_voto": False
             })
             
+        if not batch:
+            return JSONResponse(status_code=400, content={"detail": "No se encontraron registros válidos. Verifica que los DNI tengan 8 dígitos."})
+
         total_inserted = 0
         for i in range(0, len(batch), 500):
             chunk = batch[i:i+500]
             if chunk:
                 # Upsert is supported in Supabase using on_conflict
-                supabase.table('padron_electoral').upsert(chunk, on_conflict='dni_hash').execute()
+                res = supabase.table('padron_electoral').upsert(chunk, on_conflict='dni_hash').execute()
                 total_inserted += len(chunk)
                 
         return {"message": "Padrón cargado exitosamente", "registros_procesados": total_inserted}
