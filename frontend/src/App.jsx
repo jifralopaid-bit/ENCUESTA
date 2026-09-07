@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import Votacion from './pages/Votacion';
@@ -25,6 +25,7 @@ function App() {
         </Route>
 
         {/* Rutas de Administración */}
+        <Route path="/panel-secure-administracion" element={<Navigate to="/panel-secure-administracion/dashboard" replace />} />
         <Route path="/panel-secure-administracion/login" element={<AdminLogin />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/panel-secure-administracion/dashboard" element={<AdminDashboard />} />
