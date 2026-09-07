@@ -50,19 +50,21 @@ def normalizar_texto(texto: str) -> str:
 
 async def process_vote_queue():
     """
-    Worker en segundo plano con Tolerancia a Fallos Real:
-    1. Si el bot se demora, arroja Timeout, error de red o saturación:
-       - El worker hace un continue SIN HACER NINGÚN UPDATE a la tabla cola_votos.
-       - El ticket se queda 100% intacto en estado 'pendiente'.
-    2. SOLO se actualiza a 'rechazado' si el bot confirma explícitamente:
-       - Menor de edad (< 18 años).
-       - Domicilio fuera de La Peca.
-       - DNI no encontrado / inexistente.
-       - Ya votó previamente (doble voto).
-    3. Si cumple los requisitos (>=18 años y La Peca):
-       - Inserta en tickets_usados (ticket: dni).
-       - Inserta en votos (opcion_id: candidato_id).
-       - Actualiza cola_votos a 'aprobado'.
+    Worker en segundo plano con Tolerancia a Fallos y Aprobación Exclusiva:
+    1. Erradicación del Dígito Verificador (DV):
+       - El DV es una simulación estructural y JAMÁS es motivo de comparación ni rechazo.
+       - No se compara ningún DV del bot ni de la base de datos.
+    2. Criterios de Aprobación Exclusivos:
+       Una vez que el bot retorna exitosamente la ficha de RENIEC:
+       a) Edad: Debe ser >= 18 años.
+       b) Ubicación: El distrito debe contener 'LA PECA'.
+       - Si cumple ambas, el voto se aprueba.
+       - Si falla alguna, se rechaza por ese motivo específico (menor de edad o distrito no válido).
+    3. Tolerancia a Fallos Confirmada:
+       - Si ocurre un TimeoutError, demora o el bot no responde: el estado del ticket NO se altera
+         (permanece estrictamente en 'pendiente') y se hace 'continue' para reintentarlo en la siguiente vuelta.
+    4. DNI no encontrado:
+       - Si el bot confirma explícitamente que el DNI no existe en RENIEC, se rechaza.
     """
     print("[Worker] Motor de validación asíncrono iniciado correctamente.")
     while True:

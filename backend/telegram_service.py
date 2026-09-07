@@ -30,12 +30,12 @@ class TelegramValidator:
         self._lock = asyncio.Lock()
         self._last_request_time = 0.0
 
-    async def consultar_dni(self, dni: str, digito_esperado: str = "") -> dict:
+    async def consultar_dni(self, dni: str) -> dict:
         """
         Consulta un DNI contra el bot oficial @DominusDox_bot vía MTProto.
         Reglas estrictas:
-        1. Ignora el dígito verificador devuelto por el bot.
-        2. Extrae Edad y Distrito para que el worker valide la elegibilidad.
+        1. NO extrae ni compara el dígito verificador (DV). El DV es puramente estructural en el cliente.
+        2. Extrae exclusivamente Edad y Distrito para que el worker valide la elegibilidad (>=18 años y La Peca).
         3. Identifica respuestas explícitas de DNI no existente:
            '[ ✖ ] No se encontro informacion para los datos ingresados.'
         4. Detecta y maneja activamente '[ ANTI-SPAM ACTIVADO ]':
