@@ -13,7 +13,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
       <div className="flex justify-between items-center px-4 py-3 max-w-5xl mx-auto">
         {/* Lado Izquierdo */}
         <Link to="/" className="flex items-center gap-3 group">

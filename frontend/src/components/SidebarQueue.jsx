@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { 
   ShieldCheck, 
   Loader2, 
   CheckCircle, 
   AlertCircle, 
   X, 
-  ChevronRight, 
   List, 
   Trash2, 
   RefreshCw, 
@@ -14,7 +13,8 @@ import {
   UserX, 
   MapPinOff, 
   ShieldAlert, 
-  CheckCircle2 
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -22,7 +22,23 @@ const SidebarQueue = () => {
   const [tickets, setTickets] = useState([]);
   const [isOpen, setIsOpen] = useState(true);
   const [loadingActions, setLoadingActions] = useState({});
+  const [isMobile, setIsMobile] = useState(false);
   
+  const dragControls = useDragControls();
+  const listRef = useRef(null);
+  const touchStartY = useRef(0);
+  const touchCurrentY = useRef(0);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     let token = localStorage.getItem('userToken');
     if (!token) {
@@ -50,6 +66,14 @@ const SidebarQueue = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Si llega un nuevo ticket emitido, abrir el panel automáticamente si estaba cerrado
+  useEffect(() => {
+    if (tickets.length > prevCountRef.current && prevCountRef.current > 0) {
+      setIsOpen(true);
+    }
+    prevCountRef.current = tickets.length;
+  }, [tickets.length]);
 
   if (tickets.length === 0) return null;
 
@@ -84,7 +108,27 @@ const SidebarQueue = () => {
     window.dispatchEvent(event);
   };
 
-  // Configuración visual ultra-precisa según la respuesta oficial del sistema
+  // Gestos táctiles de respaldo en celular cuando el scroll está en el inicio
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    if (listRef.current && listRef.current.scrollTop <= 0) {
+      const deltaY = touchCurrentY.current - touchStartY.current;
+      if (deltaY > 75) {
+        setIsOpen(false);
+      }
+    }
+    touchStartY.current = 0;
+    touchCurrentY.current = 0;
+  };
+
+  // Configuración visual según la respuesta oficial del sistema
   const getStatusConfig = (estado, mensaje = '') => {
     const msg = (mensaje || '').toLowerCase();
 
@@ -176,7 +220,20 @@ const SidebarQueue = () => {
 
   return (
     <>
-      {/* Botón flotante para abrir el sidebar si está cerrado */}
+      {/* Fondo tenue (Backdrop) en Celular cuando la ventana está abierta */}
+      <AnimatePresence>
+        {isOpen && isMobile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 sm:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Botón flotante para abrir la fila si está cerrada */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -184,27 +241,57 @@ const SidebarQueue = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 50 }}
             onClick={() => setIsOpen(true)}
-            className="fixed top-24 right-0 z-40 bg-[#035c43] text-white p-3 rounded-l-xl shadow-lg hover:bg-[#024532] transition flex items-center gap-2 border border-r-0 border-[#024532]"
+            className="fixed top-24 right-0 z-40 bg-[#035c43] text-white py-2.5 px-3.5 rounded-l-xl shadow-xl hover:bg-[#024532] transition-all flex items-center gap-2 border border-r-0 border-[#024532] group cursor-pointer"
+            title="Abrir fila de votación"
           >
-            <List size={20} />
-            <span className="font-semibold text-sm">Fila ({tickets.length})</span>
+            <List size={18} className="group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-xs sm:text-sm">Fila ({tickets.length})</span>
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Sidebar Fijo */}
+      {/* Ventana de Cola: Bottom Sheet en Móvil / Sidebar Lateral en Desktop */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-            className="fixed top-0 right-0 w-84 sm:w-96 h-full bg-white shadow-[-6px_0_25px_rgba(0,0,0,0.08)] border-l border-gray-200 z-50 flex flex-col"
+            initial={isMobile ? { opacity: 0, y: '100%' } : { opacity: 0, x: '100%' }}
+            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
+            exit={isMobile ? { opacity: 0, y: '100%' } : { opacity: 0, x: '100%' }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+            drag={isMobile ? "y" : false}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={(e, info) => {
+              if (info.offset.y > 60 || info.velocity.y > 300) {
+                setIsOpen(false);
+              }
+            }}
+            className="fixed inset-x-0 bottom-0 max-h-[85vh] sm:max-h-full sm:top-0 sm:right-0 sm:left-auto sm:w-96 sm:h-full bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.18)] sm:shadow-[-6px_0_25px_rgba(0,0,0,0.1)] rounded-t-2xl sm:rounded-none border-t sm:border-t-0 sm:border-l border-gray-200 z-50 flex flex-col overflow-hidden"
           >
-            {/* Header del Sidebar */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-[#eaf4f1]">
-              <div className="flex items-center gap-2">
+            {/* Barra de arrastre ("pull handle") visible exclusivamente en celular */}
+            <div 
+              onPointerDown={(e) => {
+                if (isMobile && !e.target.closest('button')) dragControls.start(e);
+              }}
+              className="w-full pt-2.5 pb-1 flex flex-col items-center justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none select-none bg-[#eaf4f1]"
+            >
+              <div className="w-12 h-1.5 bg-gray-400/80 rounded-full" />
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium mt-1">
+                <ChevronDown size={12} className="animate-bounce" />
+                <span>Jala hacia abajo para cerrar</span>
+              </div>
+            </div>
+
+            {/* Cabecera del Panel / Bottom Sheet */}
+            <div 
+              onPointerDown={(e) => {
+                if (isMobile && !e.target.closest('button')) dragControls.start(e);
+              }}
+              className="flex items-center justify-between p-3.5 sm:p-4 border-b border-gray-200 bg-[#eaf4f1] select-none shrink-0"
+            >
+              <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#035c43] text-white flex items-center justify-center font-bold text-sm shadow-sm">
                   <List size={18} />
                 </div>
@@ -215,17 +302,27 @@ const SidebarQueue = () => {
                   <p className="text-[11px] text-gray-500">Monitoreo con JNE / RENIEC</p>
                 </div>
               </div>
+              
+              {/* Botón de Cierre visible y destacado */}
               <button 
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-gray-200/60 rounded-full text-gray-500 hover:text-gray-800 transition"
-                title="Minimizar panel"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-200 shadow-xs transition-colors cursor-pointer"
+                title="Cerrar ventana de fila"
+                aria-label="Cerrar ventana de fila"
               >
-                <ChevronRight size={22} />
+                <X size={18} className="stroke-[2.5]" />
               </button>
             </div>
 
-            {/* Lista de Tickets */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
+            {/* Lista Scrollable de Tickets */}
+            <div 
+              ref={listRef}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar"
+            >
               {tickets.map((ticket) => {
                 const config = getStatusConfig(ticket.estado, ticket.mensaje);
                 return (
@@ -263,7 +360,7 @@ const SidebarQueue = () => {
                     {config.type === 'rejected' && config.rejectType === 'duplicate' && (
                       <button
                         onClick={() => handleRevocation(ticket.dni)}
-                        className="mt-1 text-[11px] font-bold text-red-700 bg-red-100/90 hover:bg-red-200/90 py-2 px-3 rounded-lg w-full text-center transition shadow-xs flex items-center justify-center gap-1.5"
+                        className="mt-1 text-[11px] font-bold text-red-700 bg-red-100/90 hover:bg-red-200/90 py-2 px-3 rounded-lg w-full text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <ShieldAlert size={14} />
                         ¿No fuiste tú? Solicitar revocación
@@ -273,7 +370,7 @@ const SidebarQueue = () => {
                     {config.type === 'rejected' && config.rejectType === 'not_found' && (
                       <button
                         onClick={() => handleRetry(ticket.id, ticket)}
-                        className="mt-1 text-[11px] font-bold text-gray-800 bg-white hover:bg-gray-100 py-1.5 px-3 rounded-lg w-full text-center transition border border-gray-300 shadow-xs flex items-center justify-center gap-1.5"
+                        className="mt-1 text-[11px] font-bold text-gray-800 bg-white hover:bg-gray-100 py-1.5 px-3 rounded-lg w-full text-center transition border border-gray-300 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <RefreshCw size={13} className="text-[#035c43]" />
                         Corregir número de DNI
@@ -298,7 +395,7 @@ const SidebarQueue = () => {
                           <button 
                             onClick={() => handleRetry(ticket.id, ticket)}
                             disabled={loadingActions[ticket.id]}
-                            className="flex items-center gap-1 text-[10px] font-medium text-gray-600 hover:text-[#035c43] transition disabled:opacity-50"
+                            className="flex items-center gap-1 text-[10px] font-medium text-gray-600 hover:text-[#035c43] transition disabled:opacity-50 cursor-pointer"
                           >
                             <RefreshCw size={12} />
                             Reintentar
@@ -307,7 +404,7 @@ const SidebarQueue = () => {
                         <button 
                           onClick={() => handleDelete(ticket.id)}
                           disabled={loadingActions[ticket.id]}
-                          className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-red-600 transition disabled:opacity-50"
+                          className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-red-600 transition disabled:opacity-50 cursor-pointer"
                         >
                           {loadingActions[ticket.id] === 'deleting' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                           Descartar
@@ -320,12 +417,12 @@ const SidebarQueue = () => {
             </div>
             
             {/* Footer de información del Sidebar */}
-            <div className="p-3.5 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center flex flex-col gap-1">
-              <span className="font-bold text-gray-800 flex items-center justify-center gap-1.5">
-                <ShieldCheck size={15} className="text-[#035c43]" />
+            <div className="p-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center flex flex-col gap-0.5 shrink-0">
+              <span className="font-bold text-gray-800 flex items-center justify-center gap-1.5 text-xs">
+                <ShieldCheck size={14} className="text-[#035c43]" />
                 Auditoría Ciudadana RENIEC / JNE
               </span>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[10px] text-gray-500">
                 Puedes navegar libremente mientras tu turno avanza en segundo plano.
               </span>
             </div>
