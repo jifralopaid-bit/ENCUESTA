@@ -120,21 +120,21 @@ const PadronElectoralPanel = () => {
                 } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  {file ? (
-                    <div key="file-selected" className="flex flex-col items-center text-center">
-                      <FileText className="w-10 h-10 mb-3 text-emerald-600" />
-                      <p className="mb-2 text-sm text-emerald-800 font-semibold">{file.name}</p>
-                      <p className="text-xs text-emerald-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                  ) : (
-                    <div key="no-file" className="flex flex-col items-center text-center">
-                      <Upload className="w-10 h-10 mb-3 text-gray-400" />
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold text-emerald-600">Haz clic para subir</span> o arrastra y suelta
-                      </p>
-                      <p className="text-xs text-gray-400">CSV o XLSX (Columnas requeridas: DNI, Nombre)</p>
-                    </div>
-                  )}
+                  {/* Vista con archivo seleccionado */}
+                  <div className={`flex-col items-center text-center ${file ? 'flex' : 'hidden'}`}>
+                    <FileText className="w-10 h-10 mb-3 text-emerald-600" />
+                    <p className="mb-2 text-sm text-emerald-800 font-semibold">{file ? file.name : ''}</p>
+                    <p className="text-xs text-emerald-600">{file ? (file.size / 1024 / 1024).toFixed(2) : '0'} MB</p>
+                  </div>
+                  
+                  {/* Vista sin archivo */}
+                  <div className={`flex-col items-center text-center ${!file ? 'flex' : 'hidden'}`}>
+                    <Upload className="w-10 h-10 mb-3 text-gray-400" />
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold text-emerald-600">Haz clic para subir</span> o arrastra y suelta
+                    </p>
+                    <p className="text-xs text-gray-400">CSV o XLSX (Columnas requeridas: DNI, Nombre)</p>
+                  </div>
                 </div>
                 <input 
                   id="padron-file-upload" 
@@ -160,29 +160,25 @@ const PadronElectoralPanel = () => {
                 disabled={!file || isUploading}
                 className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
               >
-                {isUploading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="animate-spin" size={18} /> Procesando...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Upload size={18} /> Cargar Padrón Encriptado
-                  </span>
-                )}
+                <span className={`items-center gap-2 ${isUploading ? 'flex' : 'hidden'}`}>
+                  <Loader2 className="animate-spin" size={18} /> Procesando...
+                </span>
+                <span className={`items-center gap-2 ${!isUploading ? 'flex' : 'hidden'}`}>
+                  <Upload size={18} /> Cargar Padrón Encriptado
+                </span>
               </button>
             </div>
           </div>
 
-          {uploadMessage.text && (
-            <div className={`mt-4 p-4 rounded-xl text-sm font-medium flex items-center gap-2 ${
-              uploadMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-              uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
-              'bg-blue-50 text-blue-800 border border-blue-200'
-            }`}>
-              {uploadMessage.type === 'error' ? <AlertCircle size={18}/> : <CheckCircle size={18}/>}
-              {uploadMessage.text}
-            </div>
-          )}
+          <div className={`mt-4 p-4 rounded-xl text-sm font-medium flex items-center gap-2 ${uploadMessage.text ? 'block' : 'hidden'} ${
+            uploadMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+            uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+            'bg-blue-50 text-blue-800 border border-blue-200'
+          }`}>
+            <div className={uploadMessage.type === 'error' ? 'block' : 'hidden'}><AlertCircle size={18}/></div>
+            <div className={uploadMessage.type !== 'error' ? 'block' : 'hidden'}><CheckCircle size={18}/></div>
+            <span>{uploadMessage.text}</span>
+          </div>
         </div>
       </div>
 
