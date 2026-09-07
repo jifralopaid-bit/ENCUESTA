@@ -237,19 +237,7 @@ async def enqueue_vote(request: VoteRequest):
                 content={"detail": "Formato inválido. El DNI debe tener 8 números exactos y el dígito verificador 1 carácter."}
             )
             
-        # 2. Verificar si este DNI ya ha votado previamente
-        try:
-            voto_previo = supabase.table('votos').select('id').eq('dni', dni_clean).execute()
-            ticket_previo = supabase.table('tickets_usados').select('ticket').eq('ticket', dni_clean).execute()
-            if (voto_previo.data and len(voto_previo.data) > 0) or (ticket_previo.data and len(ticket_previo.data) > 0):
-                return JSONResponse(
-                    status_code=400, 
-                    content={"detail": "Este DNI ya ha emitido un voto en este proceso electoral."}
-                )
-        except Exception as check_err:
-            print(f"Advertencia chequeando duplicado en /api/votar: {check_err}")
-
-        # 3. Encolar ticket asegurando candidato_id exacto
+        # 2. Encolar ticket asegurando candidato_id exacto
         response = supabase.table('cola_votos').insert({
             'dni': dni_clean,
             'dv': dv_clean.upper(),

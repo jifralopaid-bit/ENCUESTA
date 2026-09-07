@@ -62,7 +62,7 @@ const SidebarQueue = () => {
     };
 
     fetchQueue();
-    const interval = setInterval(fetchQueue, 3000); // Polling cada 3 segundos
+    const interval = setInterval(fetchQueue, 1500); // Polling cada 1.5 segundos
 
     return () => clearInterval(interval);
   }, []);
