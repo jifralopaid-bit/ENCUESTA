@@ -58,6 +58,7 @@ const SidebarQueue = () => {
         setTickets(data || []);
       } catch (error) {
         console.error("Error fetching queue:", error);
+        setTickets([]); // Fallback to empty array on error
       }
     };
 
@@ -69,13 +70,13 @@ const SidebarQueue = () => {
 
   // Si llega un nuevo ticket emitido, abrir el panel automáticamente si estaba cerrado
   useEffect(() => {
-    if (tickets.length > prevCountRef.current && prevCountRef.current > 0) {
+    if ((tickets?.length || 0) > prevCountRef.current && prevCountRef.current > 0) {
       setIsOpen(true);
     }
-    prevCountRef.current = tickets.length;
-  }, [tickets.length]);
+    prevCountRef.current = tickets?.length || 0;
+  }, [tickets?.length]);
 
-  if (tickets.length === 0) return null;
+  if (!tickets || tickets.length === 0) return null;
 
   const handleDelete = async (id) => {
     setLoadingActions(prev => ({ ...prev, [id]: 'deleting' }));
@@ -245,7 +246,7 @@ const SidebarQueue = () => {
             title="Abrir fila de votación"
           >
             <List size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="font-semibold text-xs sm:text-sm">Fila ({tickets.length})</span>
+            <span className="font-semibold text-xs sm:text-sm">Fila ({tickets?.length || 0})</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -323,7 +324,7 @@ const SidebarQueue = () => {
               onTouchEnd={handleTouchEnd}
               className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar"
             >
-              {tickets.map((ticket) => {
+              {tickets?.map((ticket) => {
                 const config = getStatusConfig(ticket.estado, ticket.mensaje);
                 return (
                   <motion.div 

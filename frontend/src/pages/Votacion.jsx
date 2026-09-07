@@ -36,7 +36,7 @@ const Votacion = () => {
   // Manejador del evento personalizado disparado por el Sidebar (reintento)
   useEffect(() => {
     const handleOpenModal = (e) => {
-      const cand = candidatos.find(c => c.id === e.detail.candidateId);
+      const cand = candidatos?.find(c => c.id === e.detail.candidateId);
       if (cand) {
         setCandidatoSeleccionado(cand);
         setIsRetryState(e.detail.isRetry || false);
@@ -57,10 +57,11 @@ const Votacion = () => {
       const { resultados_ocultos, data } = response.data;
       
       setResultadosOcultos(resultados_ocultos);
-      setCandidatos(data || []);
+      setCandidatos(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching candidates/votes:', error);
-      if (candidatos.length === 0) {
+      setCandidatos([]);
+      if (candidatos?.length === 0 || !candidatos) {
         setErrorLoading('Ocurrió un error al cargar los candidatos. Por favor, recarga la página.');
       }
     } finally {
@@ -78,7 +79,7 @@ const Votacion = () => {
   };
 
   // Cálculo dinámico del total de sufragios
-  const totalVotos = candidatos.reduce((acc, c) => acc + (c.votos || 0), 0);
+  const totalVotos = (candidatos || []).reduce((acc, c) => acc + (c.votos || 0), 0);
 
   return (
     <div className="bg-white min-h-screen font-sans">
@@ -118,7 +119,7 @@ const Votacion = () => {
           ) : errorLoading ? (
             <div className="text-center py-10 text-red-500 bg-red-50 rounded-xl">{errorLoading}</div>
           ) : (
-            candidatos.map((candidato) => (
+            candidatos?.map((candidato) => (
               <CandidateCard 
                 key={candidato.id}
                 candidato={candidato}

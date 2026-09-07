@@ -10,28 +10,31 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SidebarQueue from './components/SidebarQueue';
 import WelcomeModal from './components/WelcomeModal';
 import RevocationModal from './components/RevocationModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <Router>
-      <SidebarQueue />
-      <WelcomeModal />
-      <RevocationModal />
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="votacion" element={<Votacion />} />
-          <Route path="transparencia" element={<Transparencia />} />
-        </Route>
+    <ErrorBoundary>
+      <Router>
+        <SidebarQueue />
+        <WelcomeModal />
+        <RevocationModal />
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="votacion" element={<Votacion />} />
+            <Route path="transparencia" element={<Transparencia />} />
+          </Route>
 
-        {/* Rutas de Administración */}
-        <Route path="/panel-secure-administracion" element={<Navigate to="/panel-secure-administracion/dashboard" replace />} />
-        <Route path="/panel-secure-administracion/login" element={<AdminLogin />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/panel-secure-administracion/dashboard" element={<AdminDashboard />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* Rutas de Administración */}
+          <Route path="/panel-secure-administracion" element={<Navigate to="/panel-secure-administracion/dashboard" replace />} />
+          <Route path="/panel-secure-administracion/login" element={<AdminLogin />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/panel-secure-administracion/dashboard" element={<AdminDashboard />} />
+          </Route>
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
