@@ -152,10 +152,18 @@ class TelegramValidator:
                                                 distrito = line.replace("DISTRITO", "").replace(":", "").strip()
                                                 break
 
+                                    # 3. Extracción de Género
+                                    genero = None
+                                    if "MASCULINO" in text.upper() or "VARON" in text.upper() or "VARÓN" in text.upper():
+                                        genero = "MASCULINO"
+                                    elif "FEMENINO" in text.upper() or "MUJER" in text.upper():
+                                        genero = "FEMENINO"
+
                                     resultado_final = {
                                         "status": "success",
                                         "edad": edad,
                                         "distrito": distrito,
+                                        "genero": genero,
                                         "raw": text
                                     }
                                     break

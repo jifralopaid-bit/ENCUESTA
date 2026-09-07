@@ -4,6 +4,7 @@ import { Upload, Plus, Trash2, Save, LogOut, FileText, Image as ImageIcon, Edit2
 import { useNavigate } from 'react-router-dom';
 import TelegramConfig from '../components/TelegramConfig';
 import RevocacionesPanel from './RevocacionesPanel';
+import CentroComando from '../components/CentroComando';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -352,9 +353,15 @@ const AdminDashboard = () => {
           >
             Solicitudes de Revocación
           </button>
+          <button 
+            onClick={() => setActiveTab('comando')}
+            className={`py-3 px-4 font-semibold text-sm ${activeTab === 'comando' ? 'border-b-2 border-emerald-600 text-emerald-800' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Centro de Comando
+          </button>
         </div>
 
-        {activeTab === 'candidatos' ? (
+        {activeTab === 'candidatos' && (
           <>
             {/* === CONFIGURACIÓN DE TELEGRAM === */}
             <TelegramConfig />
@@ -674,8 +681,14 @@ const AdminDashboard = () => {
           </div>
         </div>
         </>
-        ) : (
+        )}
+        
+        {activeTab === 'revocaciones' && (
           <RevocacionesPanel />
+        )}
+
+        {activeTab === 'comando' && (
+          <CentroComando />
         )}
       </main>
     </div>

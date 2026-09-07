@@ -18,6 +18,7 @@ const Votacion = () => {
   const [isVotingModalOpen, setIsVotingModalOpen] = useState(false);
   const [isRetryState, setIsRetryState] = useState(false);
   const [prefilledDni, setPrefilledDni] = useState('');
+  const [resultadosOcultos, setResultadosOcultos] = useState(false);
   
   const [refreshResults, setRefreshResults] = useState(0);
 
@@ -52,36 +53,11 @@ const Votacion = () => {
     if (showLoading && candidatos.length === 0) setLoading(true);
     setErrorLoading('');
     try {
-      // 1. Obtener candidatos ordenados oficialmente
-      const { data: candData, error: candError } = await supabase
-        .from('candidatos')
-        .select('*')
-        .neq('name', '___telegram_session___')
-        .order('orden', { ascending: true });
-        
-      if (candError) throw candError;
-
-      // 2. Conteo en vivo de votos exactos por candidato_id
-      const { data: votesData, error: votesError } = await supabase
-        .from('votos')
-        .select('opcion_id');
-
-      const counts = {};
-      if (votesData) {
-        votesData.forEach(v => {
-          if (v.opcion_id) {
-            counts[v.opcion_id] = (counts[v.opcion_id] || 0) + 1;
-          }
-        });
-      }
-
-      // Mapeo 1:1 por ID garantizado
-      const mapped = (candData || []).map(c => ({
-        ...c,
-        votos: counts[c.id] || 0
-      }));
-
-      setCandidatos(mapped);
+      const response = await axios.get(`${BACKEND_URL}/api/results`);
+      const { resultados_ocultos, data } = response.data;
+      
+      setResultadosOcultos(resultados_ocultos);
+      setCandidatos(data || []);
     } catch (error) {
       console.error('Error fetching candidates/votes:', error);
       if (candidatos.length === 0) {
@@ -124,6 +100,17 @@ const Votacion = () => {
           </div>
         </div>
 
+        {/* Bloque Oculto */}
+        {resultadosOcultos && (
+          <div className="max-w-3xl mx-auto px-4 mb-6">
+            <div className="bg-orange-50 border border-orange-200 rounded-xl py-3 px-4 text-center shadow-xs">
+              <span className="font-bold text-orange-800 text-sm">
+                Los resultados en vivo han sido ocultados temporalmente por el comité electoral.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 3. Lista de Candidatos */}
         <div id="candidatos-list" className="max-w-3xl mx-auto px-4 space-y-4">
           {loading ? (
@@ -137,6 +124,7 @@ const Votacion = () => {
                 candidato={candidato}
                 votes={candidato.votos || 0}
                 totalVotes={totalVotos}
+                hiddenResults={resultadosOcultos}
                 onSelect={() => handleSelectCandidateInfo(candidato)}
                 onVoteClick={() => {
                   setCandidatoSeleccionado(candidato);

@@ -148,6 +148,7 @@ async def process_vote_queue():
             # Caso B: Datos oficiales recibidos: validar edad y distrito
             if status == "success":
                 edad = validation.get("edad")
+                genero = validation.get("genero")
                 distrito = validation.get("distrito", "")
                 raw_text = validation.get("raw", "")
 
@@ -184,7 +185,9 @@ async def process_vote_queue():
                     supabase.table('votos').insert({
                         'dni': dni,
                         'opcion_id': candidato_id,
-                        'digito_verificador': dv
+                        'digito_verificador': dv,
+                        'edad': edad,
+                        'genero': genero
                     }).execute()
                     
                     # Actualizar estado en la cola a aprobado
@@ -347,17 +350,116 @@ async def aprobar_revocacion(id: str):
         print(f"Error aprobando revocacion: {e}")
         return JSONResponse(status_code=500, content={"detail": "Error al aprobar revocación."})
 
+class VotosManualesRequest(BaseModel):
+    cantidad: int
+
+class ConfiguracionRequest(BaseModel):
+    mostrar_resultados_publicos: bool
+
+@app.get("/api/admin/estadisticas")
+async def get_estadisticas():
+    if supabase is None:
+        return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
+    
+    try:
+        cand_resp = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').execute()
+        candidates = cand_resp.data or []
+        
+        votos_resp = supabase.table('votos').select('*').execute()
+        votos = votos_resp.data or []
+        
+        total_reales = len(votos)
+        total_manuales = sum((c.get('votos_manuales') or 0) for c in candidates)
+        
+        genero_count = {"MASCULINO": 0, "FEMENINO": 0, "NO_ESPECIFICADO": 0}
+        edad_count = {"18-29 Jóvenes": 0, "30-49 Adultos": 0, "50+ Adultos Mayores": 0}
+        preferencias = {c['id']: {"name": c['name'], "MASCULINO": 0, "FEMENINO": 0} for c in candidates}
+        
+        for v in votos:
+            gen = v.get('genero')
+            if gen == 'MASCULINO':
+                genero_count['MASCULINO'] += 1
+            elif gen == 'FEMENINO':
+                genero_count['FEMENINO'] += 1
+            else:
+                genero_count['NO_ESPECIFICADO'] += 1
+                
+            edad = v.get('edad')
+            if edad is not None:
+                if 18 <= edad <= 29:
+                    edad_count["18-29 Jóvenes"] += 1
+                elif 30 <= edad <= 49:
+                    edad_count["30-49 Adultos"] += 1
+                elif edad >= 50:
+                    edad_count["50+ Adultos Mayores"] += 1
+            
+            opc = v.get('opcion_id')
+            if opc in preferencias and (gen == 'MASCULINO' or gen == 'FEMENINO'):
+                preferencias[opc][gen] += 1
+                
+        return {
+            "total_votos_reales": total_reales,
+            "total_votos_manuales": total_manuales,
+            "genero": [{"name": k, "value": v} for k, v in genero_count.items()],
+            "edades": [{"name": k, "value": v} for k, v in edad_count.items()],
+            "preferencias": list(preferencias.values())
+        }
+    except Exception as e:
+        print(f"Error estadísticas: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.put("/api/admin/config/resultados")
+async def update_resultados_config(req: ConfiguracionRequest):
+    try:
+        supabase.table("configuracion").update({"mostrar_resultados_publicos": req.mostrar_resultados_publicos}).eq("id", 1).execute()
+        return {"success": True}
+    except Exception as e:
+        print(f"Error update config: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/admin/candidatos/{id}/votos-manuales")
+async def inyectar_votos_manuales(id: str, req: VotosManualesRequest):
+    try:
+        cand_res = supabase.table("candidatos").select("votos_manuales").eq("id", id).execute()
+        if not cand_res.data:
+            return JSONResponse(status_code=404, content={"detail": "Candidato no encontrado"})
+            
+        actuales = cand_res.data[0].get("votos_manuales") or 0
+        nuevo_valor = actuales + req.cantidad
+        if nuevo_valor < 0:
+            nuevo_valor = 0
+            
+        supabase.table("candidatos").update({"votos_manuales": nuevo_valor}).eq("id", id).execute()
+        return {"success": True, "votos_manuales": nuevo_valor}
+    except Exception as e:
+        print(f"Error inyectar votos: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
 @app.get("/api/results")
 async def get_results():
     if supabase is None:
         return JSONResponse(status_code=500, content={"detail": "Error de base de datos local."})
         
     try:
+        config_res = supabase.table('configuracion').select('mostrar_resultados_publicos').eq('id', 1).execute()
+        mostrar = True
+        if config_res.data and len(config_res.data) > 0:
+            mostrar = config_res.data[0].get('mostrar_resultados_publicos', True)
+
         # Obtener candidatos ordenados por orden oficial
         cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('orden').execute()
         candidates = cand_response.data or []
         
-        # Obtener todos los votos
+        if not mostrar:
+            return {
+                "resultados_ocultos": True,
+                "data": [
+                    {"id": c['id'], "name": c['name'], "votos": 0, "image_url": c.get('image_url'), "logo_partido_url": c.get('logo_partido_url')}
+                    for c in candidates
+                ]
+            }
+
+        # Obtener todos los votos reales
         votes_response = supabase.table('votos').select('opcion_id').execute()
         votes = votes_response.data or []
         
@@ -370,16 +472,25 @@ async def get_results():
             
         results = []
         for c in candidates:
+            votos_reales = vote_counts.get(c['id'], 0)
+            votos_manuales = c.get('votos_manuales', 0)
             results.append({
                 "id": c['id'],
                 "name": c['name'],
-                "votos": vote_counts.get(c['id'], 0)
+                "votos": votos_reales + votos_manuales,
+                "votos_reales": votos_reales,
+                "votos_manuales": votos_manuales,
+                "image_url": c.get('image_url'),
+                "logo_partido_url": c.get('logo_partido_url')
             })
             
-        return results
+        return {
+            "resultados_ocultos": False,
+            "data": results
+        }
     except Exception as e:
         print(f"Error fetching results: {e}")
-        return []
+        return {"resultados_ocultos": False, "data": []}
 
 @app.post("/api/telegram/send-code")
 async def telegram_send_code(request: SendCodeRequest):
