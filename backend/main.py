@@ -351,7 +351,7 @@ async def aprobar_revocacion(id: str):
         print(f"Error aprobando revocacion: {e}")
         return JSONResponse(status_code=500, content={"detail": "Error al aprobar revocación."})
 
-class VotosManualesRequest(BaseModel):
+class VotoManual(BaseModel):
     cantidad: int
 
 class ConfiguracionRequest(BaseModel):
@@ -447,7 +447,7 @@ async def update_resultados_config(req: ConfiguracionRequest):
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/admin/candidatos/{id}/votos-manuales")
-async def inyectar_votos_manuales(id: str, req: VotosManualesRequest):
+async def inyectar_votos_manuales(id: str, req: VotoManual):
     try:
         cand_res = supabase.table("candidatos").select("votos_manuales").eq("id", int(id) if id.isdigit() else id).execute()
         if not cand_res.data:
@@ -459,7 +459,7 @@ async def inyectar_votos_manuales(id: str, req: VotosManualesRequest):
             nuevo_valor = 0
             
         supabase.table("candidatos").update({"votos_manuales": nuevo_valor}).eq("id", int(id) if id.isdigit() else id).execute()
-        return {"success": True, "votos_manuales": nuevo_valor}
+        return JSONResponse(status_code=200, content={"success": True, "votos_manuales": nuevo_valor})
     except Exception as e:
         print(f"Error inyectar votos: {e}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
