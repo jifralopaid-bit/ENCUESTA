@@ -121,19 +121,19 @@ const PadronElectoralPanel = () => {
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   {file ? (
-                    <>
+                    <div key="file-selected" className="flex flex-col items-center text-center">
                       <FileText className="w-10 h-10 mb-3 text-emerald-600" />
                       <p className="mb-2 text-sm text-emerald-800 font-semibold">{file.name}</p>
                       <p className="text-xs text-emerald-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </>
+                    </div>
                   ) : (
-                    <>
+                    <div key="no-file" className="flex flex-col items-center text-center">
                       <Upload className="w-10 h-10 mb-3 text-gray-400" />
                       <p className="mb-2 text-sm text-gray-500">
                         <span className="font-semibold text-emerald-600">Haz clic para subir</span> o arrastra y suelta
                       </p>
                       <p className="text-xs text-gray-400">CSV o XLSX (Columnas requeridas: DNI, Nombre)</p>
-                    </>
+                    </div>
                   )}
                 </div>
                 <input 
@@ -161,13 +161,13 @@ const PadronElectoralPanel = () => {
                 className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
               >
                 {isUploading ? (
-                  <>
+                  <span className="flex items-center gap-2">
                     <Loader2 className="animate-spin" size={18} /> Procesando...
-                  </>
+                  </span>
                 ) : (
-                  <>
+                  <span className="flex items-center gap-2">
                     <Upload size={18} /> Cargar Padrón Encriptado
-                  </>
+                  </span>
                 )}
               </button>
             </div>
