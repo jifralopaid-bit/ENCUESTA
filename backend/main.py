@@ -356,6 +356,34 @@ class VotosManualesRequest(BaseModel):
 class ConfiguracionRequest(BaseModel):
     mostrar_resultados_publicos: bool
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/login")
+async def admin_login(req: LoginRequest):
+    try:
+        if not supabase:
+            return JSONResponse(status_code=500, content={"detail": "Error de base de datos."})
+            
+        # Validar en base de datos PostgreSQL mediante pgcrypto y RPC
+        res = supabase.rpc('verify_admin_login', {
+            'admin_email': req.email, 
+            'admin_password': req.password
+        }).execute()
+        
+        if not res.data:
+            raise HTTPException(status_code=401, detail="Credenciales inválidas")
+            
+        # Generar un token (simplificado, que el front guardará)
+        token = secrets.token_hex(32)
+        return {"access_token": token}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error en login: {e}")
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
 @app.get("/api/admin/estadisticas")
 async def get_estadisticas():
     if supabase is None:

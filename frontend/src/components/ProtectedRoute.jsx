@@ -8,20 +8,13 @@ const ProtectedRoute = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar si hay sesión activa al montar el componente
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Escuchar cambios de autenticación
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      setSession(true);
+    } else {
+      setSession(false);
+    }
+    setLoading(false);
   }, []);
 
   if (loading) {
@@ -37,7 +30,7 @@ const ProtectedRoute = () => {
 
   // Si no hay sesión, redirigir al login
   if (!session) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/panel-secure-administracion/login" replace />;
   }
 
   // Si hay sesión, renderizar el componente hijo (Dashboard)

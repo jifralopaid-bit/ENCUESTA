@@ -61,8 +61,8 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/admin/login');
+    localStorage.removeItem('admin_token');
+    navigate('/panel-secure-administracion/login');
   };
 
   const addRegidor = () => {

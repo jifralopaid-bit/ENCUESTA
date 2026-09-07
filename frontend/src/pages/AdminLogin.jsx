@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import axios from 'axios';
 import { Leaf, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -12,11 +14,9 @@ const AdminLogin = () => {
 
   useEffect(() => {
     // Si ya está logueado, redirigir al dashboard
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate('/admin/dashboard');
-      }
-    });
+    if (localStorage.getItem('admin_token')) {
+      navigate('/panel-secure-administracion/dashboard');
+    }
   }, [navigate]);
 
   const handleLogin = async (e) => {
@@ -24,16 +24,17 @@ const AdminLogin = () => {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
+        email,
+        password,
+      });
+      localStorage.setItem('admin_token', response.data.access_token);
+      navigate('/panel-secure-administracion/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Credenciales incorrectas o error en el servidor.');
+    } finally {
       setLoading(false);
-    } else {
-      navigate('/admin/dashboard');
     }
   };
 

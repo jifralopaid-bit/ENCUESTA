@@ -25,9 +25,9 @@ function App() {
         </Route>
 
         {/* Rutas de Administración */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/panel-secure-administracion/login" element={<AdminLogin />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/panel-secure-administracion/dashboard" element={<AdminDashboard />} />
         </Route>
       </Routes>
     </Router>
