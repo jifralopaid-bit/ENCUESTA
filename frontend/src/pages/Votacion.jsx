@@ -79,7 +79,7 @@ const Votacion = () => {
   };
 
   // Cálculo dinámico del total de sufragios
-  const totalVotos = (candidatos || []).reduce((acc, c) => acc + (c.votos || 0), 0);
+  const totalVotos = candidatos?.reduce((acc, candidato) => acc + (candidato.votos || 0), 0) || 0;
 
   return (
     <div className="bg-white min-h-screen font-sans">
@@ -115,7 +115,11 @@ const Votacion = () => {
         {/* 3. Lista de Candidatos */}
         <div id="candidatos-list" className="max-w-3xl mx-auto px-4 space-y-4">
           {loading ? (
-            <div className="text-center py-10 text-gray-500 animate-pulse">Cargando candidatos...</div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="animate-pulse bg-gray-200 h-24 rounded-xl"></div>
+              ))}
+            </div>
           ) : errorLoading ? (
             <div className="text-center py-10 text-red-500 bg-red-50 rounded-xl">{errorLoading}</div>
           ) : (
