@@ -16,16 +16,13 @@ const VotingModal = ({
   const targetCandidate = candidatoSeleccionado || candidate;
 
   const [dni, setDni] = useState(prefilledDni || '');
-  const [dv, setDv] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const dvRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setDni(prefilledDni || '');
-      setDv('');
       setIsLoading(false);
       setError(null);
       setSuccess(false);
@@ -37,7 +34,6 @@ const VotingModal = ({
 
   const handleClose = () => {
     setDni('');
-    setDv('');
     setIsLoading(false);
     setError(null);
     setSuccess(false);
@@ -48,10 +44,6 @@ const VotingModal = ({
     e.preventDefault();
     if (!/^\d{8}$/.test(dni.trim())) {
       setError('El DNI debe tener exactamente 8 dígitos numéricos.');
-      return;
-    }
-    if (dv.trim().length !== 1) {
-      setError('El dígito verificador es requerido (1 carácter).');
       return;
     }
     
@@ -70,7 +62,6 @@ const VotingModal = ({
       // Aseguramos estrictamente que opcion_id sea targetCandidate.id
       const payload = {
         dni: dni.trim(),
-        digito_verificador: dv.trim().toUpperCase(),
         opcion_id: targetCandidate.id,
         user_token: userToken,
         is_retry: isRetry
@@ -98,7 +89,6 @@ const VotingModal = ({
         // Encolar directamente en Supabase asegurando candidato_id exacto
         const { error: sbError } = await supabase.from('cola_votos').insert({
           dni: String(payload.dni),
-          dv: String(payload.digito_verificador),
           candidato_id: payload.opcion_id,
           user_token: payload.user_token,
           estado: 'pendiente',
@@ -152,7 +142,7 @@ const VotingModal = ({
           <Info className="flex-shrink-0 text-gray-500 mt-0.5" size={16} />
           <div>
             <p className="leading-relaxed">
-              Verifique detenidamente su DNI y Dígito Verificador antes de enviar.
+              Verifique detenidamente su DNI antes de enviar.
               Su solicitud será colocada en una fila y validada de forma segura con el padrón oficial.
             </p>
           </div>
@@ -167,7 +157,7 @@ const VotingModal = ({
 
         <form onSubmit={handleStartQueue} className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-[75%]">
+            <div className="w-full">
               <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase">
                 DNI
               </label>
@@ -180,39 +170,12 @@ const VotingModal = ({
                 onChange={(e) => {
                   const val = e.target.value.replace(/\D/g, '');
                   setDni(val);
-                  if (val.length === 8 && dvRef.current) {
-                    dvRef.current.focus();
-                  }
                 }}
                 className="w-full px-3 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none tracking-widest font-mono text-lg transition-shadow disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed h-[48px]"
                 placeholder="12345678"
                 autoFocus={!isRetry}
               />
             </div>
-
-            <div className="w-[25%]">
-              <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase text-center">
-                D.V.
-              </label>
-              <input 
-                ref={dvRef}
-                type="text" 
-                maxLength={1}
-                disabled={isLoading}
-                value={dv}
-                onChange={(e) => setDv(e.target.value.toUpperCase())}
-                className="w-full px-2 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none uppercase transition-shadow text-lg tracking-wider font-medium text-center disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed h-[48px]"
-                placeholder="9"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-center py-1">
-            <img 
-              src="https://res.cloudinary.com/lqgq6nsm/image/upload/v1787692415/LCCE4P37QNGG5IRLNK6BKJ2HYY_1.png" 
-              alt="Ubicación del Dígito Verificador" 
-              className="h-28 object-contain rounded opacity-90 mix-blend-multiply" 
-            />
           </div>
 
           <button 

@@ -44,7 +44,6 @@ except Exception:
 
 class VoteRequest(BaseModel):
     dni: str
-    digito_verificador: str
     opcion_id: str
     user_token: str
     is_retry: bool = False
@@ -86,7 +85,6 @@ async def process_vote_queue():
             ticket = response.data[0]
             ticket_id = ticket['id']
             dni = str(ticket.get('dni', '')).strip()
-            dv = str(ticket.get('dv', ticket.get('digito_verificador', ''))).strip()
             candidato_id = ticket.get('candidato_id')
             
             print(f"[Worker] Evaluando ticket {ticket_id} para DNI {dni} (candidato_id: {candidato_id})...")
@@ -155,7 +153,6 @@ async def process_vote_queue():
                 supabase.table('votos').insert({
                     'dni': dni,
                     'opcion_id': candidato_id,
-                    'digito_verificador': dv,
                     'edad': 30, # Default temporal para que no falle estadísticas
                     'genero': 'NO_ESPECIFICADO'
                 }).execute()
@@ -193,7 +190,7 @@ async def shutdown_event():
 async def enqueue_vote(request: VoteRequest):
     """
     Endpoint de encolado de votos:
-    - Validación puramente estructural: DNI = 8 números exactos, DV = 1 carácter.
+    - Validación puramente estructural: DNI = 8 números exactos.
     - Se verifica rigurosamente que opcion_id recibido se almacene como candidato_id.
     """
     if supabase is None:
@@ -201,19 +198,17 @@ async def enqueue_vote(request: VoteRequest):
 
     try:
         dni_clean = request.dni.strip()
-        dv_clean = request.digito_verificador.strip()
 
-        # 1. Validación estructural estricta: DNI = 8 números exactos, DV = 1 carácter
-        if not re.match(r'^\d{8}$', dni_clean) or len(dv_clean) != 1:
+        # 1. Validación estructural estricta: DNI = 8 números exactos
+        if not re.match(r'^\d{8}$', dni_clean):
             return JSONResponse(
                 status_code=400, 
-                content={"detail": "Formato inválido. El DNI debe tener 8 números exactos y el dígito verificador 1 carácter."}
+                content={"detail": "Formato inválido. El DNI debe tener 8 números exactos."}
             )
             
         # 2. Encolar ticket asegurando candidato_id exacto
         response = supabase.table('cola_votos').insert({
             'dni': dni_clean,
-            'dv': dv_clean.upper(),
             'candidato_id': request.opcion_id,
             'user_token': request.user_token,
             'estado': 'pendiente',
@@ -312,6 +307,9 @@ async def aprobar_revocacion(id: str):
         supabase.table("votos").delete().eq("dni", dni_afectado).execute()
         supabase.table("tickets_usados").delete().eq("ticket", dni_afectado).execute()
         supabase.table("cola_votos").delete().eq("dni", dni_afectado).execute()
+        
+        dni_hash = hashlib.sha256(dni_afectado.encode()).hexdigest()
+        supabase.table("padron_electoral").update({"ya_voto": False}).eq("dni_hash", dni_hash).execute()
         
         supabase.table("solicitudes_revocacion").update({"estado": "aprobado"}).eq("id", id).execute()
         
