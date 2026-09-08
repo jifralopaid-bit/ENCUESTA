@@ -56,7 +56,11 @@ const VotingModal = ({
       setIsLoading(true);
       setError(null);
       
-      const userToken = localStorage.getItem('userToken') || crypto.randomUUID();
+      const generateToken = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+      };
+      const userToken = localStorage.getItem('userToken') || generateToken();
       localStorage.setItem('userToken', userToken);
 
       // Aseguramos estrictamente que opcion_id sea targetCandidate.id
@@ -79,7 +83,8 @@ const VotingModal = ({
         } catch (apiErr) {
           console.warn("Fallo o advertencia al llamar a /api/votar:", apiErr);
           if (apiErr.response && apiErr.response.data && apiErr.response.data.detail) {
-            setError(apiErr.response.data.detail);
+            const detail = apiErr.response.data.detail;
+            setError(Array.isArray(detail) ? detail[0]?.msg || 'Error de validación' : (typeof detail === 'object' ? JSON.stringify(detail) : String(detail)));
             return;
           }
         }
