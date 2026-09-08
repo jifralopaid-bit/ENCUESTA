@@ -3,7 +3,7 @@ import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { Smartphone, CheckCircle, Loader2, AlertCircle, Save } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const TelegramConfig = () => {
   const [phoneNumber, setPhoneNumber] = useState('');

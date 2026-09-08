@@ -388,7 +388,7 @@ const SidebarQueue = () => {
                     {/* Timestamp y Acciones Generales */}
                     <div className="flex justify-between items-center mt-1 border-t border-black/5 pt-2">
                       <div className="text-[10px] text-gray-500 font-mono">
-                        {new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {ticket.created_at ? new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
                       </div>
                       
                       <div className="flex items-center gap-3">

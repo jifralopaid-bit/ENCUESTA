@@ -8,7 +8,7 @@ import RevocacionesPanel from './RevocacionesPanel';
 import CentroComando from '../components/CentroComando';
 import PadronElectoralPanel from './PadronElectoralPanel';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();

@@ -5,7 +5,7 @@ import CandidateModal from '../components/CandidateModal';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const Votacion = () => {
   const [candidatos, setCandidatos] = useState([]);

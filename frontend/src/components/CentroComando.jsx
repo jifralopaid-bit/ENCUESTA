@@ -3,7 +3,7 @@ import axios from 'axios';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Eye, EyeOff, Plus, Minus, ShieldAlert, Activity, Users, BarChart3 } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const COLORS = ['#035c43', '#128a67', '#eab308', '#f43f5e', '#3b82f6', '#8b5cf6'];
 

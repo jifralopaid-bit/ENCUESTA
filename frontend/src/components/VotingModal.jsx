@@ -67,7 +67,7 @@ const VotingModal = ({
         is_retry: isRetry
       };
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       let apiCalledSuccessfully = false;
 
       if (backendUrl) {
