@@ -418,17 +418,9 @@ async def update_resultados_config(req: ConfiguracionRequest):
 @app.post("/api/admin/candidatos/{id}/votos-manuales")
 async def inyectar_votos_manuales(id: str, req: VotoManual):
     try:
-        cand_res = supabase.table("candidatos").select("votos_manuales").eq("id", int(id) if id.isdigit() else id).execute()
-        if not cand_res.data:
-            return JSONResponse(status_code=404, content={"detail": "Candidato no encontrado"})
-            
-        actuales = cand_res.data[0].get("votos_manuales") or 0
-        nuevo_valor = actuales + req.cantidad
-        if nuevo_valor < 0:
-            nuevo_valor = 0
-            
-        supabase.table("candidatos").update({"votos_manuales": nuevo_valor}).eq("id", int(id) if id.isdigit() else id).execute()
-        return JSONResponse(status_code=200, content={"success": True, "votos_manuales": nuevo_valor})
+        candidato_id = int(id) if id.isdigit() else id
+        response = supabase.rpc('actualizar_votos_manuales', {'p_candidato_id': candidato_id, 'p_cantidad': req.cantidad}).execute()
+        return JSONResponse(status_code=200, content={"success": True})
     except Exception as e:
         print(f"Error inyectar votos: {e}")
         return JSONResponse(status_code=500, content={"detail": str(e)})

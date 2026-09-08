@@ -50,7 +50,8 @@ const CentroComando = () => {
 
   const handleVotoManual = async (candidatoId, cantidad) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/candidatos/${candidatoId}/votos-manuales`, {
+      const url = `${BACKEND_URL}/api/admin/candidatos/${candidatoId}/votos-manuales`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -58,16 +59,15 @@ const CentroComando = () => {
         body: JSON.stringify({ cantidad: cantidad })
       });
       
-      if (response.ok) {
-        fetchData(); // CRÍTICO: Recargar los datos inmediatamente
-      } else {
-        const errorText = await response.text();
-        console.error("Error updating manual votes:", errorText);
-        alert("Error al actualizar votos manuales");
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
       }
+      
     } catch (error) {
       console.error("Error updating manual votes", error);
-      alert("Error al actualizar votos manuales");
+      alert("Error al actualizar votos: " + error.message);
+    } finally {
+      fetchData(); // CRÍTICO: Recargar los datos obligatoriamente
     }
   };
 
