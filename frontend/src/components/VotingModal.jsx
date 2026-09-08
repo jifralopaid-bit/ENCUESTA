@@ -29,8 +29,7 @@ const VotingModal = ({
     }
   }, [isOpen, prefilledDni]);
 
-  // Prevenir renderizado con estado nulo y si está cerrado
-  if (!isOpen || !targetCandidate) return null;
+  // La condición se evalúa dentro de AnimatePresence para evitar errores de renderizado
 
   const handleClose = () => {
     setDni('');
@@ -209,33 +208,35 @@ const VotingModal = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-sm w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
-        >
-          {/* Cabecera Roja con botón de cierre absoluto */}
-          <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10 relative">
-            <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
-              <ShieldCheck size={20} />
-              Validación de Identidad
-            </h2>
-            <button 
-              type="button"
-              onClick={handleClose} 
-              className="absolute top-4 right-4 text-white hover:text-gray-200 p-1 rounded-full transition"
-              title="Cerrar modal"
-              aria-label="Cerrar modal"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          {renderContent()}
-        </motion.div>
-      </div>
+      {(isOpen && targetCandidate) && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-sm w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
+          >
+            {/* Cabecera Roja con botón de cierre absoluto */}
+            <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10 relative">
+              <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
+                <ShieldCheck size={20} />
+                Validación de Identidad
+              </h2>
+              <button 
+                type="button"
+                onClick={handleClose} 
+                className="absolute top-4 right-4 text-white hover:text-gray-200 p-1 rounded-full transition"
+                title="Cerrar modal"
+                aria-label="Cerrar modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            {renderContent()}
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
