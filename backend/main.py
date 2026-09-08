@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 from telegram_service import TelegramValidator
 import os
 from dotenv import load_dotenv
@@ -44,9 +45,9 @@ except Exception:
 
 class VoteRequest(BaseModel):
     dni: str
-    opcion_id: str
-    user_token: str
-    is_retry: bool = False
+    opcion_id: int
+    user_token: Optional[str] = None
+    is_retry: Optional[bool] = False
 
 class SendCodeRequest(BaseModel):
     phone_number: str
@@ -189,42 +190,56 @@ async def shutdown_event():
 @app.post("/api/votar")
 async def enqueue_vote(request: VoteRequest):
     """
-    Endpoint de encolado de votos:
+    Endpoint de validación y encolado de votos:
     - Validación puramente estructural: DNI = 8 números exactos.
-    - Se verifica rigurosamente que opcion_id recibido se almacene como candidato_id.
+    - Se verifica rigurosamente en el padrón local.
     """
     if supabase is None:
         return JSONResponse(status_code=500, content={"detail": "Error de conexión a la base de datos."})
 
     try:
-        dni_clean = request.dni.strip()
+        dni_clean = str(request.dni).strip()
 
         # 1. Validación estructural estricta: DNI = 8 números exactos
         if not re.match(r'^\d{8}$', dni_clean):
-            return JSONResponse(
-                status_code=400, 
-                content={"detail": "Formato inválido. El DNI debe tener 8 números exactos."}
-            )
+            raise HTTPException(status_code=400, detail="Formato inválido. El DNI debe tener 8 números exactos.")
             
-        # 2. Encolar ticket asegurando candidato_id exacto
+        # 2. Manejo Seguro del Hash y validación en padrón
+        dni_hash = hashlib.sha256(dni_clean.encode('utf-8')).hexdigest()
+        
+        res = supabase.table('padron_electoral').select('*').eq('dni_hash', dni_hash).execute()
+        
+        # Validar que exista data y evitar IndexError
+        if not res.data or len(res.data) == 0:
+            raise HTTPException(status_code=400, detail="El DNI no figura en el padrón electoral oficial.")
+            
+        # Evaluar flag de voto
+        if res.data[0].get('ya_voto') == True:
+            raise HTTPException(status_code=400, detail="Este DNI ya emitió un voto en este proceso electoral.")
+            
+        # 3. Encolar ticket asegurando candidato_id exacto
+        user_token = request.user_token if request.user_token else "default_token"
         response = supabase.table('cola_votos').insert({
             'dni': dni_clean,
             'candidato_id': request.opcion_id,
-            'user_token': request.user_token,
+            'user_token': user_token,
             'estado': 'pendiente',
             'mensaje': 'En cola de validación'
         }).execute()
         
         if not response.data:
-            return JSONResponse(status_code=500, content={"detail": "No se pudo generar el ticket en la cola."})
+            raise HTTPException(status_code=500, detail="No se pudo generar el ticket en la cola.")
 
         return JSONResponse(status_code=202, content={
             "message": "Ticket encolado exitosamente", 
             "ticket_id": response.data[0]['id']
         })
+    except HTTPException:
+        # Relanzamos excepciones HTTP para no capturarlas como genéricas 500
+        raise
     except Exception as e:
-        print(f"Error DB Cola: {e}")
-        return JSONResponse(status_code=500, content={"detail": "Error al procesar tu turno. Intenta nuevamente."})
+        print(f"Error crítico 500: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error del servidor: {str(e)}")
 
 @app.get("/api/cola/{user_token}")
 async def get_queue_status(user_token: str):
