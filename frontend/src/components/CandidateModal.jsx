@@ -80,7 +80,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 text-xs sm:text-sm font-semibold rounded-full transition-colors"
                 >
-                  <FileText size={16} /> Plan de Gobierno
+                  <FileText size={16} /> <span>Plan de Gobierno</span>
                 </a>
               )}
               {candidato.proposal && (
@@ -128,7 +128,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-sm font-medium transition-colors w-full sm:w-auto justify-center"
                     >
-                      <FileText size={16} /> Ver hoja de vida
+                      <FileText size={16} /> <span>Ver hoja de vida</span>
                     </a>
                   )}
                 </div>
@@ -189,7 +189,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-[13px] font-medium transition-colors w-full sm:w-auto justify-center ml-8 sm:ml-0"
                           >
-                            <FileText size={14} /> Ver hoja de vida
+                            <FileText size={14} /> <span>Ver hoja de vida</span>
                           </a>
                         )}
                       </div>
@@ -211,7 +211,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                 className="w-full flex items-center justify-center gap-2 bg-[#009688] hover:bg-[#00796b] text-white font-bold py-3.5 rounded-lg shadow-md transition-colors active:scale-[0.99] outline-none text-base sm:text-lg"
               >
                 <ShieldCheck size={24} /> 
-                Validar mi Voto por {candidato.name}
+                <span>Validar mi Voto por {candidato.name}</span>
               </button>
               <p className="text-center text-xs text-gray-500 mt-2.5 font-medium flex items-center justify-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#009688]"></span>

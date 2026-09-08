@@ -190,10 +190,10 @@ const VotingModal = ({
             {isLoading ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
-                Validando...
+                <span>Validando...</span>
               </>
             ) : (
-              'Validar Identidad y Emitir Voto'
+              <span>Validar Identidad y Emitir Voto</span>
             )}
           </button>
 
@@ -220,7 +220,7 @@ const VotingModal = ({
             <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10 relative">
               <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
                 <ShieldCheck size={20} />
-                Validación de Identidad
+                <span>Validación de Identidad</span>
               </h2>
               <button 
                 type="button"

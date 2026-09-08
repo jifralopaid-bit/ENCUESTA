@@ -217,8 +217,10 @@ const RevocationModal = () => {
                     className="w-full bg-[#C93339] hover:bg-red-800 text-white font-bold py-3 rounded-sm transition-all shadow-sm focus:ring-2 focus:ring-[#C93339] focus:ring-offset-2 outline-none mt-4 text-base h-[48px] flex justify-center items-center gap-2"
                   >
                     {status === 'PROCESSING' ? (
-                      <><Loader2 size={20} className="animate-spin" /> Procesando...</>
-                    ) : 'Enviar Solicitud'}
+                      <><Loader2 size={20} className="animate-spin" /> <span>Procesando...</span></>
+                    ) : (
+                      <span>Enviar Solicitud</span>
+                    )}
                   </button>
                 </form>
               )}

@@ -338,7 +338,7 @@ const SidebarQueue = () => {
                     <div className="flex items-center justify-between">
                       <span className="font-mono font-extrabold tracking-wider text-sm flex items-center gap-2">
                         {config.icon} 
-                        DNI: {ticket.dni}
+                        <span>DNI: {ticket.dni}</span>
                       </span>
                       <span className={`text-[10px] uppercase px-2.5 py-0.5 rounded-full ${config.badgeClass}`}>
                         {config.label}
@@ -364,7 +364,7 @@ const SidebarQueue = () => {
                         className="mt-1 text-[11px] font-bold text-red-700 bg-red-100/90 hover:bg-red-200/90 py-2 px-3 rounded-lg w-full text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <ShieldAlert size={14} />
-                        ¿No fuiste tú? Solicitar Revocación
+                        <span>¿No fuiste tú? Solicitar Revocación</span>
                       </button>
                     )}
 
@@ -374,14 +374,14 @@ const SidebarQueue = () => {
                         className="mt-1 text-[11px] font-bold text-gray-800 bg-white hover:bg-gray-100 py-1.5 px-3 rounded-lg w-full text-center transition border border-gray-300 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <RefreshCw size={13} className="text-[#035c43]" />
-                        Corregir número de DNI
+                        <span>Corregir número de DNI</span>
                       </button>
                     )}
 
                     {config.type === 'approved' && (
                       <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-bold bg-emerald-100/70 py-1.5 px-2.5 rounded-lg border border-emerald-300/60">
                         <CheckCircle2 size={15} className="text-emerald-700" />
-                        Voto seguro encriptado en el padrón
+                        <span>Voto seguro encriptado en el padrón</span>
                       </div>
                     )}
                     
@@ -399,7 +399,7 @@ const SidebarQueue = () => {
                             className="flex items-center gap-1 text-[10px] font-medium text-gray-600 hover:text-[#035c43] transition disabled:opacity-50 cursor-pointer"
                           >
                             <RefreshCw size={12} />
-                            Reintentar
+                            <span>Reintentar</span>
                           </button>
                         )}
                         <button 
@@ -408,7 +408,7 @@ const SidebarQueue = () => {
                           className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-red-600 transition disabled:opacity-50 cursor-pointer"
                         >
                           {loadingActions[ticket.id] === 'deleting' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          Descartar
+                          <span>Descartar</span>
                         </button>
                       </div>
                     </div>
@@ -421,7 +421,7 @@ const SidebarQueue = () => {
             <div className="p-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center flex flex-col gap-0.5 shrink-0">
               <span className="font-bold text-gray-800 flex items-center justify-center gap-1.5 text-xs">
                 <ShieldCheck size={14} className="text-[#035c43]" />
-                Auditoría Ciudadana RENIEC / JNE
+                <span>Auditoría Ciudadana RENIEC / JNE</span>
               </span>
               <span className="text-[10px] text-gray-500">
                 Puedes navegar libremente mientras tu turno avanza en segundo plano.
