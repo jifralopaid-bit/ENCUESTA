@@ -12,6 +12,11 @@ const PadronElectoralPanel = () => {
   const [auditData, setAuditData] = useState([]);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [auditError, setAuditError] = useState('');
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState({ type: '', voter: null });
+  const [isToggling, setIsToggling] = useState(false);
 
   useEffect(() => {
     fetchAuditData();
@@ -80,6 +85,37 @@ const PadronElectoralPanel = () => {
     }
   };
 
+  const handleToggleRevocation = async () => {
+    if (!selectedAction.voter) return;
+    setIsToggling(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/votos/toggle_revocacion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ dni: selectedAction.voter.dni })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Actualizamos localmente para no hacer refetch de inmediato si no queremos
+        fetchAuditData();
+        setIsModalOpen(false);
+      } else {
+        alert("Error: " + (data.detail || "Error desconocido"));
+      }
+    } catch (error) {
+      alert("Error de conexión al intentar actualizar el estado.");
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  const filteredAuditData = auditData.filter(voter => 
+    (voter.dni || "").includes(searchTerm) || 
+    (voter.nombres || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const formatDate = (isoString) => {
     if (!isoString) return 'Desconocida';
     try {
@@ -97,8 +133,21 @@ const PadronElectoralPanel = () => {
     <div className="space-y-8 animate-fadeIn">
       
       {/* SECCIÓN 1: CARGA DE PADRÓN */}
-      <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
-        <div className="p-6 md:p-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden relative">
+        {/* Overlay de Bloqueo */}
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
+            <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 flex flex-col items-center max-w-sm text-center transform scale-105">
+                <div className="bg-gray-100 p-4 rounded-full mb-4">
+                    <Shield className="text-gray-500" size={32} />
+                </div>
+                <h3 className="font-bold text-gray-800 text-xl">Padrón Bloqueado</h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  La carga y modificación del padrón ha sido deshabilitada permanentemente para garantizar la integridad de la auditoría.
+                </p>
+            </div>
+        </div>
+
+        <div className="p-6 md:p-8 opacity-40 select-none pointer-events-none blur-[1px]">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="bg-emerald-100 p-3 rounded-xl">
               <Shield className="text-emerald-700" size={24} />
@@ -183,62 +232,92 @@ const PadronElectoralPanel = () => {
       </div>
 
       {/* SECCIÓN 2: AUDITORÍA DE PARTICIPACIÓN */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[600px]">
+        <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center bg-gray-50 gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-blue-100 p-2 rounded-lg">
               <Users className="text-blue-700" size={20} />
             </div>
             <h2 className="text-lg font-bold text-gray-900">Registro de Participación (Auditoría)</h2>
           </div>
-          <button 
-            onClick={fetchAuditData}
-            disabled={isLoadingAudit}
-            className="flex items-center gap-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors text-gray-700 shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isLoadingAudit ? "animate-spin" : ""} />
-            Actualizar
-          </button>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar por DNI o Nombre..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 transition-all shadow-sm"
+            />
+            <button 
+              onClick={fetchAuditData}
+              disabled={isLoadingAudit}
+              className="flex items-center gap-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors text-gray-700 shadow-sm disabled:opacity-50 whitespace-nowrap"
+            >
+              <RefreshCw size={16} className={isLoadingAudit ? "animate-spin" : ""} />
+              Actualizar
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto bg-white">
           {isLoadingAudit ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <Loader2 className="animate-spin mb-2" size={32} />
-              <p className="text-sm">Desencriptando registros de auditoría...</p>
+              <p className="text-sm">Obteniendo registros de auditoría y cruzando votos...</p>
             </div>
           ) : auditError ? (
             <div className="flex flex-col items-center justify-center h-full text-red-500">
               <AlertCircle size={32} className="mb-2" />
               <p className="text-sm">{auditError}</p>
             </div>
-          ) : auditData.length === 0 ? (
+          ) : filteredAuditData.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <Users size={32} className="mb-2 opacity-50" />
-              <p className="text-sm">Aún no hay ciudadanos que hayan emitido su voto.</p>
+              <p className="text-sm">No se encontraron resultados en el padrón.</p>
             </div>
           ) : (
             <table className="w-full text-left text-sm text-gray-600">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 shadow-sm">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 shadow-sm z-10">
                 <tr>
                   <th scope="col" className="px-6 py-4 font-semibold">DNI</th>
                   <th scope="col" className="px-6 py-4 font-semibold">Nombre Completo</th>
-                  <th scope="col" className="px-6 py-4 font-semibold flex items-center gap-1">
-                    <Clock size={14}/> Hora de Sufragio
-                  </th>
+                  <th scope="col" className="px-6 py-4 font-semibold flex items-center gap-1"><Clock size={14}/> Hora de Sufragio</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Candidato Elegido</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {auditData.map((row, idx) => (
-                  <tr key={idx} className="border-b hover:bg-emerald-50 transition-colors">
-                    <td className="px-6 py-3 font-medium text-gray-900">
+                {filteredAuditData.map((row, idx) => (
+                  <tr key={idx} className={`border-b transition-colors ${row.estado === 'revocado' ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-emerald-50'}`}>
+                    <td className="px-6 py-3 font-medium text-gray-900 tracking-wider">
                       {row.dni}
                     </td>
                     <td className="px-6 py-3 uppercase">
                       {row.nombres}
+                      {row.estado === 'revocado' && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Revocado</span>}
                     </td>
-                    <td className="px-6 py-3 text-gray-500">
+                    <td className="px-6 py-3 text-gray-500 text-xs">
                       {formatDate(row.fecha_voto)}
+                    </td>
+                    <td className="px-6 py-3 font-medium text-gray-700">
+                      {row.estado === 'revocado' ? <span className="text-gray-400 line-through">{row.candidato}</span> : row.candidato}
+                    </td>
+                    <td className="px-6 py-3">
+                      {row.estado === 'valido' ? (
+                        <button
+                          onClick={() => { setSelectedAction({ type: 'revocar', voter: row }); setIsModalOpen(true); }}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded-md font-semibold text-xs hover:bg-red-200 transition-colors border border-red-200"
+                        >
+                          Revocar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setSelectedAction({ type: 'restablecer', voter: row }); setIsModalOpen(true); }}
+                          className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-md font-semibold text-xs hover:bg-emerald-200 transition-colors border border-emerald-200"
+                        >
+                          Restablecer
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -247,10 +326,44 @@ const PadronElectoralPanel = () => {
           )}
         </div>
         <div className="p-3 border-t bg-gray-50 text-xs text-gray-500 flex justify-between items-center">
-          <span>Total participantes: <strong>{auditData.length}</strong></span>
-          <span className="flex items-center gap-1"><Shield size={12}/> Desencriptado en memoria (Solo lectura)</span>
+          <span>Mostrando: <strong>{filteredAuditData.length}</strong> / {auditData.length} participantes</span>
+          <span className="flex items-center gap-1"><Shield size={12}/> Auditoría Extendida - DNI Crudo</span>
         </div>
       </div>
+
+      {/* MODAL DE CONFIRMACIÓN DE ACCIÓN */}
+      {isModalOpen && selectedAction.voter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-md transform transition-all scale-100 animate-slideUp border-t-4 border-blue-600">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <AlertCircle className={selectedAction.type === 'revocar' ? 'text-red-500' : 'text-emerald-500'} size={24} />
+              Confirmar {selectedAction.type === 'revocar' ? 'Revocación' : 'Restauración'}
+            </h3>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              ¿Estás seguro de <strong>{selectedAction.type === 'revocar' ? 'revocar' : 'restaurar'}</strong> el voto de <span className="font-semibold text-gray-900 uppercase">{selectedAction.voter.nombres}</span> (DNI: {selectedAction.voter.dni})?
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition-colors"
+                disabled={isToggling}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleToggleRevocation}
+                disabled={isToggling}
+                className={`flex-1 py-2.5 text-white font-semibold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 ${
+                  selectedAction.type === 'revocar' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30'
+                }`}
+              >
+                {isToggling ? <Loader2 className="animate-spin" size={18} /> : null}
+                {selectedAction.type === 'revocar' ? 'Confirmar Revocación' : 'Confirmar Restauración'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
     </div>
   );

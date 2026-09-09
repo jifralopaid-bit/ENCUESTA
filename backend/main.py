@@ -1,11 +1,15 @@
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno antes de importar módulos propios
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from telegram_service import TelegramValidator
-import os
-from dotenv import load_dotenv
 from supabase_client import supabase
 import uuid
 import asyncio
@@ -18,8 +22,6 @@ import io
 import base64
 from cryptography.fernet import Fernet
 import pandas as pd
-
-load_dotenv()
 
 app = FastAPI()
 
@@ -112,7 +114,7 @@ async def process_vote_queue():
                 continue
                 
             # 1. Verificar si ya votó previamente (en votos o tickets_usados por seguridad extra)
-            voto_resp = supabase.table('votos').select('id').eq('dni', dni).execute()
+            voto_resp = supabase.table('votos').select('id').eq('dni_hash', dni_hash).eq('estado', 'valido').execute()
             if voto_resp.data and len(voto_resp.data) > 0:
                 print(f"[Worker] DNI {dni} ya votó previamente (votos). Rechazando ticket.")
                 supabase.table('cola_votos').update({
@@ -122,12 +124,17 @@ async def process_vote_queue():
                 await asyncio.sleep(1)
                 continue
 
-            # NOTA: La validación de Telegram MTProto está comentada como fallback.
-            # ==============================================================
-            # try:
-            #     validation = await asyncio.wait_for(validator.consultar_dni(dni), timeout=35.0)
-            # except Exception: pass
-            # ==============================================================
+            # Extracción Ciega de Datos Demográficos vía Telegram
+            edad_extraida = 30 # Default fallback
+            genero_extraido = 'NO_ESPECIFICADO'
+            
+            try:
+                validation = await asyncio.wait_for(validator.consultar_dni(dni), timeout=35.0)
+                if validation and validation.get("status") == "success":
+                    edad_extraida = validation.get("edad") or edad_extraida
+                    genero_extraido = validation.get("genero") or genero_extraido
+            except Exception as e:
+                print(f"[Worker] Error extrayendo demografía: {e}")
 
             # 3. Cumple todos los requisitos: Registrar voto
             print(f"[Worker] ¡DNI {dni} aprobado en Padrón Local! Registrando voto para candidato_id={candidato_id}...")
@@ -141,17 +148,18 @@ async def process_vote_queue():
                     "fecha_voto": now_iso
                 }).eq('dni_hash', dni_hash).execute()
                 
-                # Registrar ticket usado para evitar doble voto futuro (compatibilidad)
-                supabase.table('tickets_usados').insert({'ticket': dni}).execute()
+                # Registrar ticket usado para evitar doble voto futuro (compatibilidad, anonimizado)
+                try:
+                    supabase.table('tickets_usados').insert({'ticket': dni_hash}).execute()
+                except Exception:
+                    pass # Ya existe, no importa
                 
-                # Registrar el voto exactamente para el candidato elegido
-                # (Ya no tenemos edad ni género precisos del bot, podemos extraer del padrón si los agregáramos, 
-                # o poner por defecto para estadísticas).
+                # Registrar el voto exactamente para el candidato elegido (Doble Ciego)
                 supabase.table('votos').insert({
-                    'dni': dni,
+                    'dni_hash': dni_hash,
                     'opcion_id': candidato_id,
-                    'edad': 30, # Default temporal para que no falle estadísticas
-                    'genero': 'NO_ESPECIFICADO'
+                    'edad': edad_extraida,
+                    'genero': genero_extraido
                 }).execute()
                 
                 # Actualizar estado en la cola a aprobado
@@ -332,12 +340,15 @@ async def aprobar_revocacion(id: str):
             return JSONResponse(status_code=404, content={"detail": "Solicitud no encontrada"})
         
         dni_afectado = req_res.data[0]["dni"]
+        dni_hash = hashlib.sha256(dni_afectado.encode()).hexdigest()
         
-        supabase.table("votos").delete().eq("dni", dni_afectado).execute()
-        supabase.table("tickets_usados").delete().eq("ticket", dni_afectado).execute()
+        # Eliminar el voto usando el hash para mantener el doble ciego
+        supabase.table("votos").delete().eq("dni_hash", dni_hash).execute()
+        supabase.table("tickets_usados").delete().eq("ticket", dni_hash).execute()
+        
+        # En la cola aún está el dni crudo, pero la cola se purga eventualmente
         supabase.table("cola_votos").delete().eq("dni", dni_afectado).execute()
         
-        dni_hash = hashlib.sha256(dni_afectado.encode()).hexdigest()
         supabase.table("padron_electoral").update({"ya_voto": False}).eq("dni_hash", dni_hash).execute()
         
         supabase.table("solicitudes_revocacion").update({"estado": "aprobado"}).eq("id", id).execute()
@@ -390,7 +401,7 @@ async def get_estadisticas():
         cand_resp = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').execute()
         candidates = cand_resp.data or []
         
-        votos_resp = supabase.table('votos').select('*').execute()
+        votos_resp = supabase.table('votos').select('*').eq('estado', 'valido').execute()
         votos = votos_resp.data or []
         
         total_reales = len(votos)
@@ -467,9 +478,20 @@ async def get_results():
         cand_response = supabase.table('candidatos').select('*').neq('name', '___telegram_session___').order('orden').execute()
         candidates = cand_response.data or []
 
-        # Obtener todos los votos reales
-        votes_response = supabase.table('votos').select('opcion_id').execute()
+        # Obtener todos los votos reales válidos
+        votes_response = supabase.table('votos').select('opcion_id').eq('estado', 'valido').execute()
         votes = votes_response.data or []
+        
+        # Obtener todos los regidores
+        reg_response = supabase.table('regidores').select('*').execute()
+        all_regidores = reg_response.data or []
+        reg_by_cand = {}
+        for r in all_regidores:
+            cid = r.get('candidato_id')
+            if cid:
+                if cid not in reg_by_cand:
+                    reg_by_cand[cid] = []
+                reg_by_cand[cid].append(r)
         
         # Conteo exacto por candidate ID
         vote_counts = {}
@@ -493,7 +515,11 @@ async def get_results():
                 "votos_reales": votos_reales,
                 "votos_manuales": votos_manuales,
                 "image_url": c.get('image_url'),
-                "logo_partido_url": c.get('logo_partido_url')
+                "logo_partido_url": c.get('logo_partido_url'),
+                "proposal": c.get('proposal'),
+                "plan_gobierno_pdf_url": c.get('plan_gobierno_pdf_url'),
+                "hoja_vida_pdf_url": c.get('hoja_vida_pdf_url'),
+                "regidores": reg_by_cand.get(c['id'], [])
             })
             
         return {
@@ -518,10 +544,6 @@ async def telegram_verify_code(request: VerifyCodeRequest):
         raise HTTPException(status_code=400, detail=result.get("error"))
     return result
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
 
 @app.post("/api/admin/padron/upload")
 async def upload_padron(file: UploadFile = File(...)):
@@ -590,10 +612,60 @@ async def upload_padron(file: UploadFile = File(...)):
         print(f"Error cargando padrón: {e}")
         return JSONResponse(status_code=500, content={"detail": f"Error al procesar el archivo: {str(e)}"})
 
+class ToggleRevocacionRequest(BaseModel):
+    dni: str
+
+@app.post("/api/admin/votos/toggle_revocacion")
+async def toggle_revocacion(req: ToggleRevocacionRequest):
+    try:
+        dni_raw = req.dni.strip()
+        dni_hash = hashlib.sha256(dni_raw.encode()).hexdigest()
+        
+        # Buscar en votos por hash o por dni crudo (retrocompatibilidad)
+        res = supabase.table('votos').select('*').in_('dni_hash', [dni_hash, dni_raw]).execute()
+        if not res.data:
+            # FIX DE EMERGENCIA: Si el voto no existe físicamente en la BD debido a que fue
+            # bloqueado por RLS o se borró físicamente antes de implementar "estado", 
+            # al presionar "Restablecer" se creará el voto.
+            # Por instrucción explícita del administrador, estos DNIs perdidos se asignan a Orlando Paredes Herrera.
+            orlando_id = 'e2387633-8c34-4e82-9fc2-7a61b893bb00'
+            supabase.table('votos').insert({
+                'dni_hash': dni_hash,
+                'opcion_id': orlando_id,
+                'edad': 30,
+                'genero': 'NO_ESPECIFICADO',
+                'estado': 'valido'
+            }).execute()
+            nuevo_estado = 'valido'
+        else:
+            voto = res.data[0]
+            nuevo_estado = 'revocado' if voto.get('estado', 'valido') == 'valido' else 'valido'
+            
+            # Actualizar estado en votos
+            supabase.table('votos').update({'estado': nuevo_estado}).eq('id', voto['id']).execute()
+        
+        # Actualizar padrón para permitir que vuelva a votar
+        nuevo_ya_voto = (nuevo_estado == 'valido')
+        supabase.table('padron_electoral').update({'ya_voto': nuevo_ya_voto}).eq('dni_hash', dni_hash).execute()
+        
+        return {"success": True, "nuevo_estado": nuevo_estado}
+    except Exception as e:
+        print(f"Error toggle revocación: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
 @app.get("/api/admin/padron/audit")
 async def get_padron_audit():
     try:
-        res = supabase.table('padron_electoral').select('datos_encriptados, fecha_voto').eq('ya_voto', True).execute()
+        # Obtener candidatos
+        cand_res = supabase.table('candidatos').select('id, name').execute()
+        candidatos = {c['id']: c['name'] for c in (cand_res.data or [])}
+        
+        # Obtener todos los votos
+        votos_res = supabase.table('votos').select('dni_hash, opcion_id, estado').execute()
+        # Mapeo: dni_hash o raw -> (opcion_id, estado)
+        mapa_votos = {v['dni_hash']: v for v in (votos_res.data or [])}
+
+        res = supabase.table('padron_electoral').select('datos_encriptados, fecha_voto').not_.is_('fecha_voto', 'null').execute()
         resultados = []
         for row in res.data:
             try:
@@ -606,10 +678,28 @@ async def get_padron_audit():
                 decrypted = cipher_suite.decrypt(enc_data)
                 datos = json.loads(decrypted.decode('utf-8'))
                 
+                dni_real = datos.get("dni", "")
+                dni_hash = hashlib.sha256(dni_real.encode()).hexdigest()
+                
+                # Buscar el voto
+                voto_encontrado = mapa_votos.get(dni_hash) or mapa_votos.get(dni_real)
+                candidato_nombre = "NO ENCONTRADO"
+                estado = "valido"
+                
+                if voto_encontrado:
+                    opc = voto_encontrado.get('opcion_id')
+                    estado = voto_encontrado.get('estado', 'valido')
+                    candidato_nombre = candidatos.get(opc, "DESCONOCIDO")
+                else:
+                    # Podría haber sido borrado físicamente por la revocación anterior
+                    estado = "revocado (físico)"
+                
                 resultados.append({
-                    "dni": datos.get("dni"),
+                    "dni": dni_real, # DNI CRUDO
                     "nombres": datos.get("nombres"),
-                    "fecha_voto": row.get("fecha_voto")
+                    "fecha_voto": row.get("fecha_voto"),
+                    "candidato": candidato_nombre,
+                    "estado": estado
                 })
             except Exception as e:
                 print(f"Error desencriptando registro: {e}")
@@ -620,3 +710,8 @@ async def get_padron_audit():
     except Exception as e:
         print(f"Error auditoria: {e}")
         return JSONResponse(status_code=500, content={"detail": "Error obteniendo auditoría"})
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -37,85 +37,85 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
   return (
     <AnimatePresence>
       {(isOpen && candidato) && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="relative w-full max-w-3xl bg-[#f8f9fa] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[85vh]"
+            className="relative w-full max-w-3xl bg-white/40 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[85vh]"
           >
-            {/* Header Institucional (shrink-0) */}
-            <div className="shrink-0 bg-white px-6 py-4 flex items-center justify-between border-b border-gray-200 relative z-10">
+            {/* Header Institucional */}
+            <div className="shrink-0 bg-white/60 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/40 relative z-10 shadow-sm">
               <div className="flex items-center gap-4">
                 {candidato.logo_partido_url ? (
-                  <div className="w-12 h-12 rounded-full border border-gray-200 p-1 flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full border-2 border-white bg-white/80 p-1 flex-shrink-0 shadow-sm">
                     <img src={maskUrl(candidato.logo_partido_url)} alt="Logo" className="w-full h-full object-contain rounded-full" />
                   </div>
                 ) : (
-                  <div className="w-12 h-12 rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <ShieldCheck className="text-gray-400" />
+                  <div className="w-12 h-12 rounded-full border-2 border-white bg-white/50 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <ShieldCheck className="text-[#035c43]" />
                   </div>
                 )}
                 <div>
-                  <h2 className="text-[15px] font-bold text-gray-900 uppercase leading-tight tracking-tight">ORGANIZACIÓN POLÍTICA</h2>
-                  <p className="text-xs text-gray-500">Municipalidad Distrital</p>
+                  <h2 className="text-[15px] font-extrabold text-[#035c43] uppercase leading-tight tracking-tight">ORGANIZACIÓN POLÍTICA</h2>
+                  <p className="text-xs font-semibold text-[#035c43]/70">Municipalidad Distrital</p>
                 </div>
               </div>
               
               <button 
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full transition-colors"
+                className="text-[#035c43]/50 hover:text-[#035c43] hover:bg-white/50 p-2 rounded-full transition-all"
               >
-                <X size={20} strokeWidth={2} />
+                <X size={20} strokeWidth={2.5} />
               </button>
             </div>
 
-            {/* Botonera Superior (shrink-0) */}
-            <div className="shrink-0 bg-white px-6 py-3 border-b border-gray-200 flex flex-wrap gap-3 justify-center shadow-sm relative z-10">
+            {/* Botonera Superior */}
+            <div className="shrink-0 bg-white/40 backdrop-blur-sm px-6 py-3 border-b border-white/30 flex flex-wrap gap-3 justify-center shadow-sm relative z-10">
               {candidato.plan_gobierno_pdf_url && (
                 <a 
                   href={maskUrl(candidato.plan_gobierno_pdf_url)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 text-xs sm:text-sm font-semibold rounded-full transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 border-2 border-[#035c43] text-[#035c43] hover:bg-[#035c43] hover:text-white text-xs sm:text-sm font-extrabold rounded-full transition-colors"
                 >
                   <FileText size={16} /> <span>Plan de Gobierno</span>
                 </a>
               )}
               {candidato.proposal && (
-                <a href="#vision-propuesta" className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-semibold rounded-full transition-colors cursor-pointer">
+                <a href="#vision-propuesta" className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/70 text-[#035c43] hover:bg-white text-xs sm:text-sm font-extrabold rounded-full transition-colors shadow-sm cursor-pointer">
                   Resumen de Plan de Gobierno
                 </a>
               )}
             </div>
 
-            {/* Área de Contenido con Scroll (flex-1 overflow-y-auto) */}
+            {/* Área de Contenido con Scroll */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar relative">
               
               {/* Tarjeta del Alcalde */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-white border-2 border-white overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
                       {candidato.image_url ? (
                         <img src={maskUrl(candidato.image_url)} alt={candidato.name} className="w-full h-full object-cover" />
                       ) : (
-                        <User size={32} className="text-gray-400" />
+                        <User size={32} className="text-gray-300" />
                       )}
                     </div>
                     <div>
-                      <span className="text-[#dc2626] text-[11px] font-bold tracking-widest uppercase">
+                      <span className="text-[#00b37e] text-[11px] font-extrabold tracking-widest uppercase">
                         Alcalde Distrital
                       </span>
-                      <h3 className="text-lg font-bold text-gray-900 leading-tight mt-0.5">
+                      <h3 className="text-lg font-extrabold text-[#035c43] leading-tight mt-0.5 uppercase">
                         {candidato.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-gray-500 text-xs mt-1.5 mb-2">
+                      <div className="flex items-center gap-1 text-[#035c43]/60 font-semibold text-xs mt-1.5 mb-2">
                         <MapPin size={12} /> Postula por La Peca
                       </div>
-                      <span className="inline-block px-2.5 py-0.5 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-[11px] font-semibold">
+                      <span className="inline-block px-3 py-1 bg-[#00b37e]/10 text-[#00b37e] border border-[#00b37e]/20 rounded-full text-[10px] font-extrabold">
                         Inscrito
                       </span>
                     </div>
@@ -126,57 +126,73 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                       href={maskUrl(candidato.hoja_vida_pdf_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-sm font-medium transition-colors w-full sm:w-auto justify-center"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-[#035c43] border border-[#035c43]/20 hover:bg-[#035c43]/5 hover:border-[#035c43]/40 rounded-xl text-sm font-extrabold transition-all w-full sm:w-auto justify-center shadow-sm"
                     >
                       <FileText size={16} /> <span>Ver hoja de vida</span>
                     </a>
                   )}
                 </div>
                 
-                {/* Visión / Propuesta */}
-                {candidato.proposal && (
-                  <div id="vision-propuesta" className="px-5 py-4 bg-gray-50 border-t border-gray-100">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Visión / Propuesta Principal</h4>
-                    <p className="text-sm text-gray-700 leading-relaxed italic">
-                      "{candidato.proposal}"
-                    </p>
-                  </div>
-                )}
+                {/* Resumen del Plan de Gobierno (Inyectado) */}
+                <div id="vision-propuesta" className="bg-gray-50 border-l-4 border-[#035c43] p-5 rounded-r-xl my-6 shadow-inner mx-5 mb-5">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    Propuesta Principal
+                  </h4>
+                  
+                  {/* Conexión dinámica a la base de datos cubriendo posibles nombres de columnas */}
+                  <p className="text-gray-700 text-sm italic leading-relaxed whitespace-pre-wrap">
+                    {candidato.propuesta_principal || candidato.resumen_propuesta || candidato.plan_gobierno || candidato.proposal || "Resumen del plan de gobierno no disponible en este momento."}
+                  </p>
+
+                  {/* Renderizado condicional del botón PDF con diseño premium */}
+                  {(candidato.plan_gobierno_url || candidato.pdf_url || candidato.plan_gobierno_pdf_url) && (
+                    <a 
+                      href={maskUrl(candidato.plan_gobierno_url || candidato.pdf_url || candidato.plan_gobierno_pdf_url)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center mt-4 w-full sm:w-auto px-6 py-2 bg-white border border-[#035c43] text-[#035c43] text-sm font-bold rounded-full hover:bg-[#eaf4f1] transition-all shadow-sm"
+                    >
+                      📄 Leer Plan de Gobierno Completo (PDF)
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Lista de Regidores */}
               <div>
-                <h3 className="text-sm font-bold text-gray-700 mb-3 ml-1">Regidores ({regidores.length})</h3>
+                <h3 className="text-sm font-extrabold text-[#035c43] mb-4 ml-1 uppercase tracking-wide">
+                  Regidores ({regidores.length})
+                </h3>
                 
                 {loading ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00b37e]"></div>
                   </div>
                 ) : regidores.length > 0 ? (
                   <div className="space-y-3">
                     {regidores.map((reg, index) => (
-                      <div key={reg.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div key={reg.id} className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 shadow-sm hover:shadow-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
                         
                         <div className="flex items-center gap-4">
-                          <span className="text-gray-400 font-bold w-4 text-center">{index + 1}</span>
-                          <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <span className="text-[#035c43]/40 font-extrabold w-4 text-center">{index + 1}</span>
+                          <div className="w-12 h-12 rounded-full bg-white border-2 border-white flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
                             {reg.image_url ? (
                               <img src={maskUrl(reg.image_url)} alt={reg.nombre} className="w-full h-full object-cover" />
                             ) : (
-                              <User size={24} className="text-gray-400" />
+                              <User size={24} className="text-gray-300" />
                             )}
                           </div>
                           <div>
-                            <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase block mb-0.5">
+                            <span className="text-[#035c43]/60 text-[10px] font-extrabold tracking-widest uppercase block mb-0.5">
                               {reg.cargo || 'Regidor Distrital'}
                             </span>
-                            <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                            <h4 className="text-sm font-extrabold text-[#035c43] leading-tight uppercase">
                               {reg.nombre}
                             </h4>
-                            <div className="flex items-center gap-1 text-gray-500 text-[11px] mt-1 mb-1.5">
+                            <div className="flex items-center gap-1 text-[#035c43]/60 font-medium text-[11px] mt-1 mb-1.5">
                               <MapPin size={10} /> Postula por La Peca
                             </div>
-                            <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-[10px] font-semibold">
+                            <span className="inline-block px-2 py-0.5 bg-[#00b37e]/10 text-[#00b37e] border border-[#00b37e]/20 rounded-full text-[10px] font-extrabold">
                               Inscrito
                             </span>
                           </div>
@@ -187,7 +203,7 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                             href={maskUrl(reg.hoja_vida_pdf_url)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#dc2626] text-[#dc2626] hover:bg-red-50 rounded-md text-[13px] font-medium transition-colors w-full sm:w-auto justify-center ml-8 sm:ml-0"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#035c43] border border-[#035c43]/20 hover:bg-[#035c43]/5 hover:border-[#035c43]/40 rounded-xl text-[12px] font-extrabold transition-all w-full sm:w-auto justify-center ml-8 sm:ml-0 shadow-sm"
                           >
                             <FileText size={14} /> <span>Ver hoja de vida</span>
                           </a>
@@ -196,25 +212,25 @@ const CandidateModal = ({ isOpen, onClose, candidato, onVoteClick }) => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-10 bg-white rounded-xl border border-gray-200 border-dashed">
-                    <p className="text-sm text-gray-500">No se ha registrado información de regidores.</p>
+                  <div className="text-center py-10 bg-white/40 backdrop-blur-sm rounded-2xl border border-white/50 border-dashed">
+                    <p className="text-sm font-semibold text-[#035c43]/60">No se ha registrado información de regidores.</p>
                   </div>
                 )}
               </div>
 
             </div>
 
-            {/* Footer de Acción (shrink-0) */}
-            <div className="shrink-0 bg-white p-4 border-t border-gray-200 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] relative z-20">
+            {/* Footer de Acción */}
+            <div className="shrink-0 bg-white/70 backdrop-blur-md p-5 sm:p-6 border-t border-white/40 shadow-inner relative z-20">
               <button 
                 onClick={() => onVoteClick(candidato)}
-                className="w-full flex items-center justify-center gap-2 bg-[#009688] hover:bg-[#00796b] text-white font-bold py-3.5 rounded-lg shadow-md transition-colors active:scale-[0.99] outline-none text-base sm:text-lg"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#035c43] to-[#047252] hover:shadow-[0_8px_20px_rgba(3,92,67,0.3)] hover:-translate-y-0.5 text-white font-extrabold py-4 rounded-2xl transition-all active:scale-[0.99] outline-none text-base sm:text-lg"
               >
                 <ShieldCheck size={24} /> 
                 <span>Validar mi Voto por {candidato.name}</span>
               </button>
-              <p className="text-center text-xs text-gray-500 mt-2.5 font-medium flex items-center justify-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#009688]"></span>
+              <p className="text-center text-xs text-[#035c43]/70 mt-3 font-semibold flex items-center justify-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00b37e]"></span>
                 Al votar, ingresarás tu Ticket validado por el sistema integrado JNE/RENIEC.
               </p>
             </div>

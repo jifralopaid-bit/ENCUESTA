@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, AlertCircle, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
+import { maskUrl } from '../utils/maskUrl';
 
 const VotingModal = ({ 
   isOpen, 
@@ -124,28 +125,36 @@ const VotingModal = ({
   const renderContent = () => {
     if (success) {
       return (
-        <div className="py-8 px-4 text-center">
-          <div className="flex flex-col items-center text-emerald-600">
-            <CheckCircle size={56} className="mb-4" />
-            <p className="text-lg font-bold text-gray-900">Ticket enviado a la fila de validación.</p>
-            <p className="text-sm text-gray-500 mt-2">Redirigiendo a resultados...</p>
+        <div className="py-10 px-6 text-center bg-white/50 backdrop-blur-sm rounded-b-3xl">
+          <div className="flex flex-col items-center text-[#00b37e]">
+            <CheckCircle size={64} className="mb-4 animate-bounce" />
+            <p className="text-xl font-extrabold text-[#035c43] uppercase tracking-wide">Ticket enviado a la fila</p>
+            <p className="text-sm font-medium text-[#035c43]/70 mt-2">Redirigiendo a resultados...</p>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar">
-        <div className="mb-4 sm:mb-6 text-center">
-          <p className="text-gray-500 text-xs sm:text-sm uppercase tracking-wider font-semibold mb-1">Candidato Seleccionado</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900">{targetCandidate?.name}</h3>
+      <div className="p-5 sm:p-7 overflow-y-auto custom-scrollbar bg-white/60 backdrop-blur-md rounded-b-3xl">
+        <div className="mb-5 sm:mb-7 text-center">
+          <p className="text-[#035c43]/60 text-xs sm:text-sm uppercase tracking-widest font-extrabold mb-1">Candidato Seleccionado</p>
+          <div className="flex flex-col items-center justify-center gap-2 mb-3 mt-3">
+            <div className="flex items-center gap-3">
+              {targetCandidate?.logo_partido_url && <img src={maskUrl(targetCandidate.logo_partido_url)} alt="Logo" className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm bg-white" />}
+              {targetCandidate?.image_url && <img src={maskUrl(targetCandidate.image_url)} alt="Candidato" className="w-14 h-14 rounded-full object-cover border-2 border-[#035c43] shadow-md bg-white" />}
+            </div>
+            <h3 className="text-lg font-black text-[#035c43] text-center leading-tight uppercase">
+              {targetCandidate?.name}
+            </h3>
+          </div>
         </div>
 
         {/* Banner de Advertencia */}
-        <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-sm text-xs flex gap-3 mb-4">
-          <Info className="flex-shrink-0 text-gray-500 mt-0.5" size={16} />
+        <div className="bg-white/70 border border-white/50 shadow-sm text-[#035c43] px-4 py-3.5 rounded-2xl text-xs flex gap-3 mb-5 items-start">
+          <Info className="flex-shrink-0 text-[#00b37e] mt-0.5" size={18} />
           <div>
-            <p className="leading-relaxed">
+            <p className="leading-relaxed font-medium">
               Verifique detenidamente su DNI antes de enviar.
               Su solicitud será colocada en una fila y validada de forma segura con el padrón oficial.
             </p>
@@ -153,17 +162,29 @@ const VotingModal = ({
         </div>
 
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 mb-4 flex items-start gap-2">
-            <AlertCircle size={20} className="shrink-0 mt-0.5" />
-            <p className="text-sm">{error}</p>
+          <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 text-red-700 px-4 py-3 rounded-2xl mb-5 flex items-start gap-2 shadow-sm">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm font-bold">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleStartQueue} className="space-y-4">
+        {/* Lista de Regidores Dinámica */}
+        {targetCandidate?.regidores?.length > 0 && (
+          <div className="mb-5 text-left bg-white/50 p-3.5 rounded-xl border border-[#035c43]/10 shadow-sm">
+            <h4 className="text-[#035c43] font-extrabold text-xs uppercase mb-2 ml-1">Equipo de Regidores:</h4>
+            <ol className="list-decimal list-inside text-[11px] sm:text-xs text-[#035c43]/80 space-y-1 ml-1 font-semibold uppercase tracking-wide">
+              {targetCandidate.regidores.map((reg, idx) => (
+                <li key={idx} className="truncate">{reg.nombre}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <form onSubmit={handleStartQueue} className="space-y-5">
           <div className="flex gap-3">
             <div className="w-full">
-              <label className="block text-xs font-bold text-gray-800 mb-1.5 uppercase">
-                DNI
+              <label className="block text-xs font-extrabold text-[#035c43] mb-2 uppercase tracking-wide pl-1">
+                INGRESE SU DNI
               </label>
               <input 
                 type="text" 
@@ -175,7 +196,7 @@ const VotingModal = ({
                   const val = e.target.value.replace(/\D/g, '');
                   setDni(val);
                 }}
-                className="w-full px-3 py-3 border border-gray-300 rounded-sm focus:ring-[#C93339] focus:border-[#C93339] outline-none tracking-widest font-mono text-lg transition-shadow disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed h-[48px]"
+                className="w-full px-4 py-3.5 bg-white/80 backdrop-blur-sm border-2 border-white/50 rounded-2xl focus:ring-[#00b37e] focus:border-[#00b37e] outline-none tracking-widest font-extrabold text-center text-xl text-[#035c43] transition-all shadow-inner disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed h-[56px] placeholder:text-gray-300 placeholder:font-normal"
                 placeholder="12345678"
                 autoFocus={!isRetry}
               />
@@ -184,21 +205,24 @@ const VotingModal = ({
 
           <button 
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-[#C93339] hover:bg-red-800 disabled:bg-red-900 disabled:cursor-not-allowed text-white font-bold py-3 rounded-sm transition-all shadow-sm focus:ring-2 focus:ring-[#C93339] focus:ring-offset-2 outline-none mt-2 text-base h-[48px] flex items-center justify-center gap-2"
+            disabled={isLoading || dni.length !== 8}
+            className="w-full bg-gradient-to-r from-[#035c43] to-[#047252] hover:shadow-[0_8px_20px_rgba(3,92,67,0.3)] hover:-translate-y-0.5 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none text-white font-extrabold py-3.5 rounded-2xl transition-all outline-none mt-2 text-base h-[56px] flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <>
-                <Loader2 size={20} className="animate-spin" />
-                <span>Validando...</span>
+                <Loader2 size={22} className="animate-spin" />
+                <span>Validando identidad...</span>
               </>
             ) : (
-              <span>Validar Identidad y Emitir Voto</span>
+              <>
+                <ShieldCheck size={22} />
+                <span>Validar Identidad y Emitir Voto</span>
+              </>
             )}
           </button>
 
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 mt-2">
-            <ShieldCheck size={14} />
+          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#035c43]/60 mt-3">
+            <ShieldCheck size={14} className="text-[#00b37e]" />
             <span>Conexión segura y encriptada</span>
           </div>
         </form>
@@ -209,27 +233,28 @@ const VotingModal = ({
   return (
     <AnimatePresence>
       {(isOpen && targetCandidate) && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-sm w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white/40 backdrop-blur-xl border border-white/50 rounded-3xl w-full max-w-md shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden"
           >
-            {/* Cabecera Roja con botón de cierre absoluto */}
-            <div className="bg-[#C93339] p-4 flex justify-between items-center text-white flex-shrink-0 z-10 relative">
-              <h2 className="text-lg font-bold flex items-center gap-2 tracking-wide">
-                <ShieldCheck size={20} />
+            {/* Cabecera Premium Nature */}
+            <div className="bg-[#035c43]/10 backdrop-blur-md border-b border-white/30 p-5 flex justify-between items-center text-[#035c43] flex-shrink-0 z-10 relative">
+              <h2 className="text-lg font-extrabold flex items-center gap-2 tracking-wide uppercase">
+                <ShieldCheck size={22} className="text-[#00b37e]" />
                 <span>Validación de Identidad</span>
               </h2>
               <button 
                 type="button"
                 onClick={handleClose} 
-                className="absolute top-4 right-4 text-white hover:text-gray-200 p-1 rounded-full transition"
+                className="absolute top-5 right-5 text-[#035c43]/50 hover:text-[#035c43] hover:bg-white/50 p-1.5 rounded-full transition-all"
                 title="Cerrar modal"
                 aria-label="Cerrar modal"
               >
-                <X size={24} />
+                <X size={20} strokeWidth={2.5} />
               </button>
             </div>
             

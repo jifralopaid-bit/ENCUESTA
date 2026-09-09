@@ -14,4 +14,13 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    proxy: {
+      '/archivo': {
+        target: 'https://vexjqvxxsyiuybxetlnq.supabase.co/storage/v1/object/public',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/archivo/, '')
+      }
+    }
+  }
 })

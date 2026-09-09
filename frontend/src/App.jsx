@@ -12,19 +12,33 @@ import WelcomeModal from './components/WelcomeModal';
 import RevocationModal from './components/RevocationModal';
 import ErrorBoundary from './components/ErrorBoundary';
 
+import Maintenance from './pages/Maintenance';
+
+const MODO_MANTENIMIENTO = false; // Activar para mostrar la pantalla de mantenimiento
+
 function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <SidebarQueue />
-        <WelcomeModal />
-        <RevocationModal />
+        {!MODO_MANTENIMIENTO && (
+          <>
+            <SidebarQueue />
+            <WelcomeModal />
+            <RevocationModal />
+          </>
+        )}
+        
         <Routes>
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Home />} />
-            <Route path="votacion" element={<Votacion />} />
-            <Route path="transparencia" element={<Transparencia />} />
-          </Route>
+          {/* Rutas Públicas */}
+          {MODO_MANTENIMIENTO ? (
+            <Route path="*" element={<Maintenance />} />
+          ) : (
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Home />} />
+              <Route path="votacion" element={<Votacion />} />
+              <Route path="transparencia" element={<Transparencia />} />
+            </Route>
+          )}
 
           {/* Rutas de Administración */}
           <Route path="/panel-secure-administracion" element={<Navigate to="/panel-secure-administracion/dashboard" replace />} />
