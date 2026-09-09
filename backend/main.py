@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -43,11 +43,7 @@ except Exception:
     cipher_suite = Fernet(FERNET_KEY)
 # -------------------------------------
 
-class VoteRequest(BaseModel):
-    dni: str
-    opcion_id: int
-    user_token: Optional[str] = None
-    is_retry: Optional[bool] = False
+
 
 class SendCodeRequest(BaseModel):
     phone_number: str
@@ -188,7 +184,7 @@ async def shutdown_event():
         await validator.client.disconnect()
 
 @app.post("/api/votar")
-async def enqueue_vote(request: VoteRequest):
+async def registrar_voto(payload: dict = Body(...)):
     """
     Endpoint de validación y encolado de votos:
     - Validación puramente estructural: DNI = 8 números exactos.
@@ -198,14 +194,26 @@ async def enqueue_vote(request: VoteRequest):
         return JSONResponse(status_code=500, content={"detail": "Error de conexión a la base de datos."})
 
     try:
-        dni_clean = str(request.dni).strip()
+        # 1. Extracción y limpieza manual (Adiós error 422)
+        dni_crudo = payload.get("dni", "")
+        dni_limpio = str(dni_crudo).strip()
+
+        # 2. Capturar el ID sin importar su tipo (int, str, UUID)
+        id_crudo = payload.get("candidato_id") or payload.get("opcion_id")
+        if not id_crudo:
+            raise HTTPException(status_code=400, detail="No se envió el ID del candidato.")
+        
+        candidato_id_final = str(id_crudo).strip()
+
+        if not dni_limpio:
+            raise HTTPException(status_code=400, detail="El DNI es obligatorio.")
 
         # 1. Validación estructural estricta: DNI = 8 números exactos
-        if not re.match(r'^\d{8}$', dni_clean):
+        if not re.match(r'^\d{8}$', dni_limpio):
             raise HTTPException(status_code=400, detail="Formato inválido. El DNI debe tener 8 números exactos.")
             
         # 2. Manejo Seguro del Hash y validación en padrón
-        dni_hash = hashlib.sha256(dni_clean.encode('utf-8')).hexdigest()
+        dni_hash = hashlib.sha256(dni_limpio.encode('utf-8')).hexdigest()
         
         res = supabase.table('padron_electoral').select('*').eq('dni_hash', dni_hash).execute()
         
@@ -218,10 +226,10 @@ async def enqueue_vote(request: VoteRequest):
             raise HTTPException(status_code=400, detail="Este DNI ya emitió un voto en este proceso electoral.")
             
         # 3. Encolar ticket asegurando candidato_id exacto
-        user_token = request.user_token if request.user_token else "default_token"
+        user_token = payload.get('user_token', 'default_token')
         response = supabase.table('cola_votos').insert({
-            'dni': dni_clean,
-            'candidato_id': request.opcion_id,
+            'dni': dni_limpio,
+            'candidato_id': candidato_id_final,
             'user_token': user_token,
             'estado': 'pendiente',
             'mensaje': 'En cola de validación'
