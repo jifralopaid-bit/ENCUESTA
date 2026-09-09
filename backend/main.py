@@ -228,10 +228,13 @@ async def registrar_voto(payload: dict = Body(...)):
             estado_ticket = 'rechazado'
             mensaje_ticket = 'Este DNI ya emitió un voto en este proceso electoral.'
             
-        # 3. Encolar ticket asegurando candidato_id exacto
+        # 3. Encolar ticket asegurando candidato_id exacto y proveyendo dv para evitar error not-null
         user_token = payload.get('user_token', 'default_token')
+        dv_value = str(payload.get('dv', '')).strip()
+
         response = supabase.table('cola_votos').insert({
             'dni': dni_limpio,
+            'dv': dv_value,
             'candidato_id': candidato_id_final,
             'user_token': user_token,
             'estado': estado_ticket,
