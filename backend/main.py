@@ -218,12 +218,15 @@ async def registrar_voto(payload: dict = Body(...)):
         res = supabase.table('padron_electoral').select('*').eq('dni_hash', dni_hash).execute()
         
         # Validar que exista data y evitar IndexError
+        estado_ticket = 'pendiente'
+        mensaje_ticket = 'En cola de validación'
+
         if not res.data or len(res.data) == 0:
-            raise HTTPException(status_code=400, detail="El DNI no figura en el padrón electoral oficial.")
-            
-        # Evaluar flag de voto
-        if res.data[0].get('ya_voto') == True:
-            raise HTTPException(status_code=400, detail="Este DNI ya emitió un voto en este proceso electoral.")
+            estado_ticket = 'rechazado'
+            mensaje_ticket = 'El DNI no figura en el padrón electoral oficial.'
+        elif res.data[0].get('ya_voto') == True:
+            estado_ticket = 'rechazado'
+            mensaje_ticket = 'Este DNI ya emitió un voto en este proceso electoral.'
             
         # 3. Encolar ticket asegurando candidato_id exacto
         user_token = payload.get('user_token', 'default_token')
@@ -231,14 +234,14 @@ async def registrar_voto(payload: dict = Body(...)):
             'dni': dni_limpio,
             'candidato_id': candidato_id_final,
             'user_token': user_token,
-            'estado': 'pendiente',
-            'mensaje': 'En cola de validación'
+            'estado': estado_ticket,
+            'mensaje': mensaje_ticket
         }).execute()
         
         if not response.data:
             raise HTTPException(status_code=500, detail="No se pudo generar el ticket en la cola.")
 
-        return JSONResponse(status_code=202, content={
+        return JSONResponse(status_code=200, content={
             "message": "Ticket encolado exitosamente", 
             "ticket_id": response.data[0]['id']
         })
